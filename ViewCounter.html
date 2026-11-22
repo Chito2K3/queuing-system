@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Dispensing Counter — ARMMC Pharmacy</title>
+  <?!= include_('AssetLogo') ?>
+  <?!= include_('StylesCommon') ?>
+  <style>
+    .counter-header-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 10px;
+      font-weight: 900;
+      font-size: 0.96rem;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      color: #FFFFFF;
+      border: 2px solid rgba(255, 255, 255, 0.45);
+    }
+    .counter-header-badge.c-1 { background: var(--c1); }
+    .counter-header-badge.c-2 { background: var(--c2); }
+    .counter-header-badge.c-3 { background: var(--c3); }
+    .counter-header-badge.c-4 { background: var(--c4); }
+
+    .counter-wrap {
+      max-width: 1120px;
+      margin: 18px auto 40px;
+      padding: 0 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .station-strip {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .workbench-grid {
+      display: grid;
+      grid-template-columns: 1.25fr 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+
+    .panel-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .serving-hero {
+      border-top: 6px solid var(--c1);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .serving-hero.c-1 { border-top-color: var(--c1); }
+    .serving-hero.c-2 { border-top-color: var(--c2); }
+    .serving-hero.c-3 { border-top-color: var(--c3); }
+    .serving-hero.c-4 { border-top-color: var(--c4); }
+
+    .serving-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .next-rotation-pill {
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: rgba(15, 138, 95, 0.12);
+      color: var(--doh-emerald-dark);
+      border: 1px solid rgba(15, 138, 95, 0.32);
+      font-weight: 800;
+      font-size: 0.88rem;
+    }
+
+    .serving-number-box {
+      background: var(--surface-muted);
+      border: 2px solid var(--border-soft);
+      border-radius: var(--radius-md);
+      padding: 22px 18px;
+      text-align: center;
+    }
+
+    .serving-number-val {
+      font-size: clamp(3.6rem, 7vw, 5.4rem);
+      font-weight: 900;
+      line-height: 1;
+      letter-spacing: 0.03em;
+      color: var(--armmc-navy);
+    }
+
+    .serving-number-val.is-idle {
+      font-size: 2.3rem;
+      color: var(--doh-emerald);
+    }
+
+    .serving-number-val.is-closed {
+      font-size: 2rem;
+      color: var(--text-subtle);
+    }
+
+    .serving-meta {
+      margin-top: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      flex-wrap: wrap;
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: var(--text-muted);
+    }
+
+    .btn-call-next {
+      width: 100%;
+      padding: 18px 20px;
+      font-size: 1.24rem;
+      letter-spacing: 0.02em;
+      border-radius: 14px;
+    }
+
+    .secondary-actions {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .specific-bar {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      padding-top: 10px;
+      border-top: 1px solid var(--border-soft);
+    }
+
+    .specific-bar input {
+      max-width: 170px;
+    }
+
+    .shortcut-hint {
+      font-size: 0.78rem;
+      color: var(--text-subtle);
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .shortcut-hint code {
+      background: var(--surface-muted);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 1px 6px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    /* All 4 Counters Live Panel */
+    .all-counters-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .mini-counter-card {
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      background: var(--surface-muted);
+      border-left: 5px solid var(--border);
+    }
+
+    .mini-counter-card.c-1 { border-left-color: var(--c1); }
+    .mini-counter-card.c-2 { border-left-color: var(--c2); }
+    .mini-counter-card.c-3 { border-left-color: var(--c3); }
+    .mini-counter-card.c-4 { border-left-color: var(--c4); }
+    .mini-counter-card.is-self {
+      background: #EEF2FF;
+      border-color: var(--armmc-blue);
+    }
+    .mini-counter-card.is-closed {
+      opacity: 0.62;
+    }
+
+    .mini-counter-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.82rem;
+      font-weight: 800;
+      color: var(--text-muted);
+    }
+
+    .mini-counter-num {
+      font-size: 1.7rem;
+      font-weight: 900;
+      margin-top: 6px;
+      color: var(--text);
+    }
+
+    .mini-counter-foot {
+      font-size: 0.76rem;
+      color: var(--text-subtle);
+      margin-top: 2px;
+      font-weight: 600;
+    }
+
+    /* Missed List */
+    .missed-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 250px;
+      overflow-y: auto;
+    }
+
+    .missed-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 9px 12px;
+      border-radius: 10px;
+      background: #FFFBEB;
+      border: 1px solid #FCD34D;
+    }
+
+    .missed-item-info {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .missed-item-num {
+      font-size: 1.05rem;
+      font-weight: 900;
+      color: #92400E;
+    }
+
+    .missed-item-meta {
+      font-size: 0.76rem;
+      color: #B45309;
+    }
+
+    @media (max-width: 860px) {
+      .workbench-grid {
+        grid-template-columns: 1fr;
+      }
+      .secondary-actions {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body class="theme-light">
+  <header class="brand-header">
+    <div class="brand-identity">
+      <div class="brand-logo-wrap">
+        <img id="ctr-logo" alt="ARMMC Official Seal" />
+      </div>
+      <div class="brand-titles">
+        <h1 class="brand-title" id="ctr-hospital-name">Amang Rodriguez Memorial Medical Center</h1>
+        <p class="brand-subtitle" id="ctr-dept-subtitle">Pharmacy — Dispensing Workbench</p>
+      </div>
+    </div>
+
+    <div class="header-right">
+      <span class="counter-header-badge c-1" id="ctr-header-badge">Counter 1</span>
+      <button type="button" class="btn btn-ghost-light btn-sm" id="btn-toggle-status">Status: Open</button>
+      <button type="button" class="btn btn-ghost-light btn-sm" id="btn-lock-pin">Lock</button>
+      <a class="btn btn-ghost-light btn-sm" id="link-hub" href="?view=hub">Hub</a>
+    </div>
+  </header>
+
+  <main class="counter-wrap">
+    <section class="station-strip">
+      <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+        <span class="pill pill-surface" id="ctr-conn-pill">
+          <span class="status-dot dot-online" id="ctr-conn-dot"></span>
+          <span id="ctr-conn-text">Synced</span>
+        </span>
+        <span style="font-size: 0.84rem; color: var(--text-muted); font-weight: 600;">
+          Card Pool / Mga Numero: <strong id="ctr-range-label">001–100</strong>
+          &nbsp;•&nbsp; Served Today / Natapos Ngayon: <strong class="tabular" id="ctr-served-today">0</strong>
+        </span>
+      </div>
+      <div class="station-bar" id="ctr-presence-bar"></div>
+    </section>
+
+    <div class="alert-banner alert-warning hidden" id="dup-counter-banner">
+      <span>
+        <strong>Duplicate Counter Alert / Doble ang Bukas na Counter:</strong> Another browser tab or PC also has
+        <span id="dup-counter-name">Counter 1</span> open (<span id="dup-tab-count">2</span> active sessions).
+        Confirm each pharmacist is on their own Counter 1–4 link.
+      </span>
+    </div>
+
+    <section class="workbench-grid">
+      <!-- Primary Serving Workbench -->
+      <div class="panel-card serving-hero c-1" id="serving-hero-card">
+        <div class="serving-top">
+          <div>
+            <div style="font-size: 0.8rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-subtle);">
+              Currently Serving at <span id="ctr-label-heading">Counter 1</span> / Kasalukuyang Numero
+            </div>
+          </div>
+          <span class="next-rotation-pill tabular">
+            Next / Susunod: <span id="ctr-next-preview">#001</span>
+          </span>
+        </div>
+
+        <div class="serving-number-box">
+          <div class="serving-number-val tabular is-idle" id="ctr-current-num">READY</div>
+          <div class="serving-meta">
+            <span>Elapsed: <strong class="tabular" id="ctr-elapsed">00:00</strong></span>
+            <span>•</span>
+            <span>Recalls: <strong class="tabular" id="ctr-recalls">0</strong></span>
+            <span>•</span>
+            <span id="ctr-call-type">Idle</span>
+          </div>
+        </div>
+
+        <button type="button" class="btn btn-primary btn-call-next" id="btn-call-next">
+          CALL NEXT PATIENT / TAWAGIN ANG SUSUNOD
+        </button>
+
+        <div class="secondary-actions">
+          <button type="button" class="btn btn-amber" id="btn-recall">Recall / Tawagin Ulit</button>
+          <button type="button" class="btn btn-outline" id="btn-noshow">No-Show / Wala</button>
+          <button type="button" class="btn btn-navy" id="btn-complete">Done / Tapos Na</button>
+        </div>
+
+        <form class="specific-bar" id="form-specific">
+          <label for="input-specific" style="font-size: 0.86rem; font-weight: 700; white-space: nowrap;">Call Specific # / Numero:</label>
+          <input type="number" class="input-field tabular" id="input-specific" min="1" max="9999" placeholder="e.g. 24" />
+          <button type="submit" class="btn btn-outline" id="btn-call-specific" style="white-space: nowrap;">Call # / Tawagin</button>
+        </form>
+
+        <div class="shortcut-hint">
+          <span>Shortcuts:</span>
+          <span><code>Space</code> / <code>Enter</code> Call Next</span>
+          <span><code>R</code> Recall</span>
+          <span><code>N</code> No-Show</span>
+          <span><code>D</code> Done</span>
+        </div>
+      </div>
+
+      <!-- Right Column: All 4 Counters + Missed Queue -->
+      <div style="display: flex; flex-direction: column; gap: 16px;">
+        <section class="panel-card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h2 style="margin: 0; font-size: 1rem; font-weight: 800;">All Dispensing Counters (Live) / Lahat ng Counter</h2>
+            <span style="font-size: 0.78rem; color: var(--text-subtle); font-weight: 600;">Real-time view</span>
+          </div>
+          <div class="all-counters-grid" id="all-counters-grid"></div>
+        </section>
+
+        <section class="panel-card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <h2 style="margin: 0; font-size: 1rem; font-weight: 800;">Missed / No-Show Hold (Mga Nalampasan)</h2>
+            <span class="pill pill-surface tabular" id="missed-count-badge">0</span>
+          </div>
+          <div class="missed-list" id="missed-list">
+            <div style="font-size: 0.88rem; color: var(--text-subtle);">No missed numbers on hold. / Walang nalampasang numero.</div>
+          </div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <!-- Staff PIN Modal -->
+  <div class="modal-backdrop" id="pin-modal">
+    <div class="modal-card">
+      <div class="modal-logo">
+        <img id="pin-logo" alt="ARMMC Official Seal" />
+      </div>
+      <h2 style="margin: 0 0 6px; font-size: 1.2rem; color: var(--armmc-navy);" id="pin-modal-title">
+        Counter 1 — Staff Unlock
+      </h2>
+      <p style="margin: 0 0 16px; font-size: 0.88rem; color: var(--text-muted);">
+        Enter the Pharmacy Staff PIN to enable calling controls. / Ilagay ang Staff PIN upang magamit ang counter.
+      </p>
+      <form id="pin-form" style="display: flex; flex-direction: column; gap: 12px; text-align: left;">
+        <input type="password" inputmode="numeric" class="input-field" id="pin-input" placeholder="Enter Staff PIN" autocomplete="off" required />
+        <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--text-muted); cursor: pointer;">
+          <input type="checkbox" id="pin-remember" checked />
+          Remember PIN on this station browser / Tandaan ang PIN
+        </label>
+        <div id="pin-error" style="color: var(--danger); font-size: 0.84rem; font-weight: 700;" class="hidden"></div>
+        <button type="submit" class="btn btn-primary" id="pin-submit-btn" style="width: 100%; padding: 12px;">
+          Unlock Counter / Buksan
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    var INJECTED_COUNTER_ID = <?!= Number(COUNTER_ID || 1) ?>;
+    var INJECTED_APP_URL = <?!= JSON.stringify(APP_URL || "") ?>;
+
+    (function () {
+      var counterId = (INJECTED_COUNTER_ID >= 1 && INJECTED_COUNTER_ID <= 4) ? INJECTED_COUNTER_ID : 1;
+      var PIN_STORAGE_KEY = "armmc_staff_pin";
+      var tabId = window.PharmacyUI.getOrCreateTabId("counter_" + counterId);
+      var stationInfo = { role: "counter", counterId: counterId, tabId: tabId };
+
+      var activePin = "";
+      var lastVersion = -1;
+      var currentState = null;
+      var latestPresence = null;
+      var actionBusy = false;
+      var cooldownUntil = 0;
+      var pollTimer = null;
+
+      window.applyHospitalLogo(document.getElementById("ctr-logo"), "");
+      window.applyHospitalLogo(document.getElementById("pin-logo"), "");
+      document.getElementById("link-hub").href = window.PharmacyUI.buildViewUrl(INJECTED_APP_URL, "hub");
+      document.getElementById("serving-hero-card").className = "panel-card serving-hero c-" + counterId;
+      document.getElementById("ctr-header-badge").className = "counter-header-badge c-" + counterId;
+      document.getElementById("pin-modal-title").textContent = "Counter " + counterId + " — Staff Unlock";
+
+      function loadSavedPin() {
+        try {
+          return window.localStorage.getItem(PIN_STORAGE_KEY) || "";
+        } catch (err) {
+          return "";
+        }
+      }
+
+      function savePin(pin, remember) {
+        activePin = pin;
+        try {
+          if (remember) window.localStorage.setItem(PIN_STORAGE_KEY, pin);
+          else window.localStorage.removeItem(PIN_STORAGE_KEY);
+        } catch (err) {
+          // Ignore storage restrictions.
+        }
+      }
+
+      function clearSavedPin() {
+        activePin = "";
+        try {
+          window.localStorage.removeItem(PIN_STORAGE_KEY);
+        } catch (err) {}
+      }
+
+      function showPinModal(errMsg) {
+        var modal = document.getElementById("pin-modal");
+        var errEl = document.getElementById("pin-error");
+        modal.classList.remove("hidden");
+        if (errMsg) {
+          errEl.textContent = errMsg;
+          errEl.classList.remove("hidden");
+        } else {
+          errEl.classList.add("hidden");
+        }
+        setTimeout(function () {
+          document.getElementById("pin-input").focus();
+        }, 60);
+      }
+
+      function hidePinModal() {
+        document.getElementById("pin-modal").classList.add("hidden");
+        document.getElementById("pin-error").classList.add("hidden");
+        document.getElementById("pin-input").value = "";
+      }
+
+      function setConnStatus(isLive) {
+        document.getElementById("ctr-conn-dot").className = "status-dot " + (isLive ? "dot-online" : "dot-warn");
+        document.getElementById("ctr-conn-text").textContent = isLive ? "Synced" : "Reconnecting...";
+      }
+
+      function getSelfCounter(state) {
+        if (!state || !state.counters) return null;
+        for (var i = 0; i < state.counters.length; i++) {
+          if (state.counters[i].id === counterId) return state.counters[i];
+        }
+        return null;
+      }
+
+      function updateActionButtons() {
+        var c = getSelfCounter(currentState);
+        var hasActive = Boolean(c && c.currentNumber !== null);
+        var disabled = actionBusy || !activePin;
+
+        document.getElementById("btn-call-next").disabled = disabled;
+        document.getElementById("btn-call-specific").disabled = disabled;
+        document.getElementById("btn-toggle-status").disabled = disabled;
+        document.getElementById("btn-recall").disabled = disabled || !hasActive;
+        document.getElementById("btn-noshow").disabled = disabled || !hasActive;
+        document.getElementById("btn-complete").disabled = disabled || !hasActive;
+      }
+
+      function renderAllCountersGrid(state, presence) {
+        if (!state) return;
+        var grid = document.getElementById("all-counters-grid");
+        grid.innerHTML = "";
+        for (var i = 0; i < state.counters.length; i++) {
+          var item = state.counters[i];
+          var presEntry = presence && presence.counters && presence.counters[String(item.id)];
+          var isOnline = Boolean(presEntry && presEntry.online);
+          var isOfflineClosed = (item.id !== counterId && presEntry && !isOnline && item.currentNumber === null);
+          var isClosed = (item.status === "CLOSED") || isOfflineClosed;
+
+          var card = document.createElement("div");
+          card.className = "mini-counter-card c-" + item.id +
+            (item.id === counterId ? " is-self" : "") +
+            (isClosed ? " is-closed" : "");
+
+          var head = document.createElement("div");
+          head.className = "mini-counter-head";
+          var nameSpan = document.createElement("span");
+          nameSpan.textContent = item.label + (item.id === counterId ? " (You)" : "");
+          var statSpan = document.createElement("span");
+          statSpan.textContent = isClosed ? "CLOSED" : "OPEN";
+          head.appendChild(nameSpan);
+          head.appendChild(statSpan);
+
+          var numDiv = document.createElement("div");
+          numDiv.className = "mini-counter-num tabular";
+          numDiv.textContent = isClosed
+            ? "CLOSED"
+            : (item.formattedNumber ? "#" + item.formattedNumber : "READY");
+
+          var foot = document.createElement("div");
+          foot.className = "mini-counter-foot tabular";
+          foot.textContent = item.calledAt
+            ? "Serving " + window.PharmacyUI.formatElapsed(item.calledAt)
+            : (item.status === "CLOSED" ? "Temporarily Closed" : (isOfflineClosed ? "Not Open / Sarado" : "Available"));
+
+          card.appendChild(head);
+          card.appendChild(numDiv);
+          card.appendChild(foot);
+          grid.appendChild(card);
+        }
+      }
+
+      function renderAll(state, presence) {
+        if (presence) latestPresence = presence;
+        if (state) {
+          currentState = state;
+          lastVersion = state.version;
+          document.getElementById("ctr-hospital-name").textContent = state.settings.hospitalName;
+          document.getElementById("ctr-dept-subtitle").textContent = state.settings.departmentSubtitle;
+          window.applyHospitalLogo(document.getElementById("ctr-logo"), state.settings.customLogoUrl);
+
+          var pad = state.settings.padDigits;
+          function fmt(n) {
+            var s = String(n);
+            while (pad > 0 && s.length < pad) s = "0" + s;
+            return s;
+          }
+          document.getElementById("ctr-range-label").textContent =
+            fmt(state.settings.minNumber) + "–" + fmt(state.settings.maxNumber);
+          document.getElementById("ctr-served-today").textContent =
+            String((state.todayStats && state.todayStats.totalServed) || 0);
+          document.getElementById("ctr-next-preview").textContent = "#" + state.nextFormatted;
+
+          var specInput = document.getElementById("input-specific");
+          specInput.min = state.settings.minNumber;
+          specInput.max = state.settings.maxNumber;
+
+          var self = getSelfCounter(state);
+          if (self) {
+            document.title = self.label + " — ARMMC Pharmacy";
+            document.getElementById("ctr-header-badge").textContent = self.label;
+            document.getElementById("ctr-label-heading").textContent = self.label;
+            document.getElementById("pin-modal-title").textContent = self.label + " — Staff Unlock";
+
+            var statusBtn = document.getElementById("btn-toggle-status");
+            statusBtn.textContent = self.status === "CLOSED" ? "Status: Closed (Reopen)" : "Status: Open";
+
+            var numEl = document.getElementById("ctr-current-num");
+            if (self.status === "CLOSED") {
+              numEl.textContent = "CLOSED";
+              numEl.className = "serving-number-val tabular is-closed";
+              document.getElementById("ctr-call-type").textContent = "Counter Closed / Sarado";
+            } else if (self.currentNumber !== null && self.formattedNumber) {
+              numEl.textContent = "#" + self.formattedNumber;
+              numEl.className = "serving-number-val tabular";
+              document.getElementById("ctr-call-type").textContent = self.currentCallType || "SERVING";
+            } else {
+              numEl.textContent = "READY";
+              numEl.className = "serving-number-val tabular is-idle";
+              document.getElementById("ctr-call-type").textContent = "Ready";
+            }
+
+            document.getElementById("ctr-recalls").textContent = String(self.recallCount || 0);
+            document.getElementById("ctr-elapsed").textContent = self.calledAt
+              ? window.PharmacyUI.formatElapsed(self.calledAt)
+              : "00:00";
+          }
+
+          renderAllCountersGrid(state, latestPresence);
+
+          // Render Missed List
+          var missed = state.missedTickets || [];
+          document.getElementById("missed-count-badge").textContent = String(missed.length);
+          var missedList = document.getElementById("missed-list");
+          missedList.innerHTML = "";
+          if (missed.length === 0) {
+            var emptyDiv = document.createElement("div");
+            emptyDiv.style.fontSize = "0.88rem";
+            emptyDiv.style.color = "var(--text-subtle)";
+            emptyDiv.textContent = "No missed numbers on hold. / Walang nalampasang numero.";
+            missedList.appendChild(emptyDiv);
+          } else {
+            missed.forEach(function (m) {
+              var row = document.createElement("div");
+              row.className = "missed-item";
+
+              var info = document.createElement("div");
+              info.className = "missed-item-info";
+              var nSpan = document.createElement("span");
+              nSpan.className = "missed-item-num tabular";
+              nSpan.textContent = "#" + m.formattedNumber;
+              var meta = document.createElement("span");
+              meta.className = "missed-item-meta";
+              meta.textContent = "From " + (m.fromCounterLabel || ("Counter " + m.fromCounterId)) +
+                " at " + window.PharmacyUI.formatManilaShortTime(m.missedAt);
+              info.appendChild(nSpan);
+              info.appendChild(meta);
+
+              var btns = document.createElement("div");
+              btns.style.display = "flex";
+              btns.style.gap = "6px";
+
+              var callBtn = document.createElement("button");
+              callBtn.type = "button";
+              callBtn.className = "btn btn-primary btn-sm";
+              callBtn.textContent = "Call Here / Tawagin";
+              callBtn.addEventListener("click", function () {
+                runAction("apiCallSpecific", [counterId, m.number, activePin, stationInfo], "Called #" + m.formattedNumber);
+              });
+
+              var dismissBtn = document.createElement("button");
+              dismissBtn.type = "button";
+              dismissBtn.className = "btn btn-outline btn-sm";
+              dismissBtn.textContent = "×";
+              dismissBtn.title = "Dismiss from missed list";
+              dismissBtn.addEventListener("click", function () {
+                runAction("apiDismissMissed", [m.number, activePin, stationInfo], "Removed #" + m.formattedNumber);
+              });
+
+              btns.appendChild(callBtn);
+              btns.appendChild(dismissBtn);
+              row.appendChild(info);
+              row.appendChild(btns);
+              missedList.appendChild(row);
+            });
+          }
+        }
+
+        if (presence) {
+          if (!state && currentState) {
+            renderAllCountersGrid(currentState, presence);
+          }
+          window.PharmacyUI.renderStationPills(document.getElementById("ctr-presence-bar"), presence, counterId);
+          var dupBanner = document.getElementById("dup-counter-banner");
+          var myPres = presence.counters && presence.counters[String(counterId)];
+          if (myPres && myPres.tabCount > 1) {
+            var labelText = (currentState && getSelfCounter(currentState)) ? getSelfCounter(currentState).label : ("Counter " + counterId);
+            document.getElementById("dup-counter-name").textContent = labelText;
+            document.getElementById("dup-tab-count").textContent = String(myPres.tabCount);
+            dupBanner.classList.remove("hidden");
+          } else {
+            dupBanner.classList.add("hidden");
+          }
+        }
+
+        updateActionButtons();
+      }
+
+      // Tick elapsed timers smoothly every second locally.
+      setInterval(function () {
+        if (!currentState) return;
+        var self = getSelfCounter(currentState);
+        if (self && self.calledAt) {
+          document.getElementById("ctr-elapsed").textContent = window.PharmacyUI.formatElapsed(self.calledAt);
+        }
+        var cards = document.querySelectorAll("#all-counters-grid .mini-counter-foot");
+        for (var i = 0; i < currentState.counters.length && i < cards.length; i++) {
+          var ct = currentState.counters[i];
+          if (ct.calledAt) {
+            cards[i].textContent = "Serving " + window.PharmacyUI.formatElapsed(ct.calledAt);
+          }
+        }
+      }, 1000);
+
+      function runAction(methodName, args, successToast, useCooldown) {
+        if (actionBusy) return;
+        if (useCooldown && Date.now() < cooldownUntil) return;
+        if (!activePin) {
+          showPinModal("Please enter Staff PIN first.");
+          return;
+        }
+        actionBusy = true;
+        if (useCooldown) cooldownUntil = Date.now() + 1200;
+        updateActionButtons();
+
+        window.PharmacyUI.gasCall.apply(null, [methodName].concat(args))
+          .then(function (res) {
+            setConnStatus(true);
+            if (!res || !res.ok) {
+              if (res && res.code === "UNAUTHORIZED") {
+                clearSavedPin();
+                showPinModal(res.error || "Invalid Staff PIN.");
+                return;
+              }
+              window.PharmacyUI.showToast((res && res.error) ? res.error : "Action failed.", "error");
+              return;
+            }
+            renderAll(res.state, res.presence);
+            if (successToast) {
+              var msg = typeof successToast === "function" ? successToast(res) : successToast;
+              if (msg) window.PharmacyUI.showToast(msg, "success");
+            }
+          })
+          .catch(function (err) {
+            setConnStatus(false);
+            window.PharmacyUI.showToast(err.message, "error");
+          })
+          .finally(function () {
+            actionBusy = false;
+            updateActionButtons();
+          });
+      }
+
+      document.getElementById("btn-call-next").addEventListener("click", function () {
+        runAction("apiCallNext", [counterId, activePin, stationInfo], function (res) {
+          var ann = res.announcement;
+          return ann ? ("Called #" + ann.formattedNumber + " to " + ann.counterLabel) : "Called next patient";
+        }, true);
+      });
+
+      document.getElementById("btn-recall").addEventListener("click", function () {
+        runAction("apiRecall", [counterId, activePin, stationInfo], function (res) {
+          var ann = res.announcement;
+          return ann ? ("Recalled #" + ann.formattedNumber) : "Recalled";
+        }, true);
+      });
+
+      document.getElementById("btn-noshow").addEventListener("click", function () {
+        runAction("apiNoShow", [counterId, activePin, stationInfo], "Marked as No-Show (moved to Hold list)");
+      });
+
+      document.getElementById("btn-complete").addEventListener("click", function () {
+        runAction("apiComplete", [counterId, activePin, stationInfo], "Marked Done — Counter Ready");
+      });
+
+      document.getElementById("btn-toggle-status").addEventListener("click", function () {
+        var self = getSelfCounter(currentState);
+        var nextStatus = (self && self.status === "CLOSED") ? "OPEN" : "CLOSED";
+        runAction("apiSetCounterStatus", [counterId, nextStatus, activePin, stationInfo],
+          nextStatus === "CLOSED" ? "Counter closed / Sarado na ang counter" : "Counter reopened / Bukas na ang counter");
+      });
+
+      document.getElementById("form-specific").addEventListener("submit", function (ev) {
+        ev.preventDefault();
+        var input = document.getElementById("input-specific");
+        var val = input.value.trim();
+        if (!val) return;
+        runAction("apiCallSpecific", [counterId, val, activePin, stationInfo], function (res) {
+          input.value = "";
+          var ann = res.announcement;
+          return ann ? ("Called #" + ann.formattedNumber) : "Ticket called";
+        }, true);
+      });
+
+      document.getElementById("btn-lock-pin").addEventListener("click", function () {
+        clearSavedPin();
+        updateActionButtons();
+        showPinModal("");
+      });
+
+      document.getElementById("pin-form").addEventListener("submit", function (ev) {
+        ev.preventDefault();
+        var pinVal = document.getElementById("pin-input").value.trim();
+        var remember = document.getElementById("pin-remember").checked;
+        var btn = document.getElementById("pin-submit-btn");
+        btn.disabled = true;
+
+        window.PharmacyUI.gasCall("apiVerifyPin", "staff", pinVal)
+          .then(function (res) {
+            if (!res || !res.ok) {
+              document.getElementById("pin-error").textContent = (res && res.error) || "Invalid PIN.";
+              document.getElementById("pin-error").classList.remove("hidden");
+              return;
+            }
+            savePin(pinVal, remember);
+            hidePinModal();
+            if (res.state) renderAll(res.state, null);
+            pollOnce();
+          })
+          .catch(function (err) {
+            document.getElementById("pin-error").textContent = err.message;
+            document.getElementById("pin-error").classList.remove("hidden");
+          })
+          .finally(function () {
+            btn.disabled = false;
+          });
+      });
+
+      // Keyboard shortcuts (disabled while typing inside inputs or while PIN modal is visible).
+      document.addEventListener("keydown", function (ev) {
+        var modalOpen = !document.getElementById("pin-modal").classList.contains("hidden");
+        if (modalOpen) return;
+        var tag = document.activeElement ? document.activeElement.tagName : "";
+        if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+        if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
+
+        if (ev.code === "Space" || ev.code === "Enter") {
+          ev.preventDefault();
+          document.getElementById("btn-call-next").click();
+        } else if (ev.key === "r" || ev.key === "R") {
+          ev.preventDefault();
+          document.getElementById("btn-recall").click();
+        } else if (ev.key === "n" || ev.key === "N") {
+          ev.preventDefault();
+          document.getElementById("btn-noshow").click();
+        } else if (ev.key === "d" || ev.key === "D") {
+          ev.preventDefault();
+          document.getElementById("btn-complete").click();
+        }
+      });
+
+      function scheduleNextPoll() {
+        clearTimeout(pollTimer);
+        var cfg = (currentState && currentState.pollingConfig) || { counterMs: 6000, hiddenCounterMs: 15000 };
+        var delay = document.hidden ? cfg.hiddenCounterMs : cfg.counterMs;
+        pollTimer = setTimeout(pollOnce, delay);
+      }
+
+      function pollOnce() {
+        clearTimeout(pollTimer);
+        window.PharmacyUI.gasCall("apiPollState", lastVersion, stationInfo)
+          .then(function (res) {
+            setConnStatus(true);
+            if (res && res.ok) {
+              renderAll(res.changed ? res.state : null, res.presence);
+            }
+          })
+          .catch(function () {
+            setConnStatus(false);
+          })
+          .finally(scheduleNextPoll);
+      }
+
+      document.addEventListener("visibilitychange", function () {
+        if (!document.hidden) pollOnce();
+      });
+
+      // Initial boot: verify saved PIN if available, then load live state.
+      var stored = loadSavedPin();
+      if (stored) {
+        window.PharmacyUI.gasCall("apiVerifyPin", "staff", stored)
+          .then(function (res) {
+            if (res && res.ok) {
+              activePin = stored;
+              hidePinModal();
+              if (res.state) renderAll(res.state, null);
+            } else {
+              clearSavedPin();
+              showPinModal("");
+            }
+          })
+          .catch(function () {
+            showPinModal("");
+          });
+      } else {
+        showPinModal("");
+      }
+
+      window.PharmacyUI.gasCall("apiGetState", stationInfo)
+        .then(function (res) {
+          setConnStatus(true);
+          if (res && res.ok) renderAll(res.state, res.presence);
+        })
+        .catch(function () {
+          setConnStatus(false);
+        })
+        .finally(scheduleNextPoll);
+    })();
+  </script>
+</body>
+</html>

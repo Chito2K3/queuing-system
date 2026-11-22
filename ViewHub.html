@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>ARMMC Pharmacy — Queue Launchpad</title>
+  <?!= include_('AssetLogo') ?>
+  <?!= include_('StylesCommon') ?>
+  <style>
+    .hub-wrap {
+      max-width: 1120px;
+      margin: 26px auto 48px;
+      padding: 0 20px;
+    }
+
+    .hub-status-strip {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+      box-shadow: var(--shadow-sm);
+      margin-bottom: 22px;
+    }
+
+    .hub-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 18px;
+    }
+
+    .hub-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 20px;
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 14px;
+      border-top: 5px solid var(--armmc-navy);
+    }
+
+    .hub-card.card-display { border-top-color: var(--armmc-gold); }
+    .hub-card.card-c1 { border-top-color: var(--c1); }
+    .hub-card.card-c2 { border-top-color: var(--c2); }
+    .hub-card.card-c3 { border-top-color: var(--c3); }
+    .hub-card.card-c4 { border-top-color: var(--c4); }
+    .hub-card.card-admin { border-top-color: var(--doh-emerald); }
+
+    .hub-card-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .hub-card h2 {
+      margin: 0;
+      font-size: 1.12rem;
+      font-weight: 800;
+    }
+
+    .hub-card p {
+      margin: 6px 0 0;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      line-height: 1.45;
+    }
+
+    .hub-ticket-badge {
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 800;
+      background: var(--surface-muted);
+      border: 1px solid var(--border);
+      color: var(--text);
+      white-space: nowrap;
+    }
+
+    .hub-url-box {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.78rem;
+      background: var(--surface-muted);
+      border: 1px solid var(--border-soft);
+      border-radius: 8px;
+      padding: 8px 10px;
+      color: var(--text-muted);
+      word-break: break-all;
+    }
+
+    .hub-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .hub-tips {
+      margin-top: 24px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 5px solid var(--armmc-blue);
+      border-radius: var(--radius-md);
+      padding: 18px 20px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .hub-tips h3 {
+      margin: 0 0 8px;
+      font-size: 1rem;
+      color: var(--armmc-navy);
+    }
+
+    .hub-tips ul {
+      margin: 0;
+      padding-left: 20px;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body class="theme-light">
+  <header class="brand-header">
+    <div class="brand-identity">
+      <div class="brand-logo-wrap">
+        <img id="hub-logo" alt="ARMMC Official Seal" />
+      </div>
+      <div class="brand-titles">
+        <h1 class="brand-title" id="hub-hospital-name">Amang Rodriguez Memorial Medical Center</h1>
+        <p class="brand-subtitle" id="hub-dept-subtitle">Department of Health • Pharmacy — Dispensing Area</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <span class="pill" id="hub-clock">--:-- --</span>
+      <a id="hub-sheet-link" class="btn btn-ghost-light btn-sm hidden" target="_blank" rel="noopener">Open Google Sheet Log</a>
+    </div>
+  </header>
+
+  <main class="hub-wrap">
+    <section class="hub-status-strip">
+      <div>
+        <strong style="font-size: 0.96rem;">Connected Stations (Live) / Mga Konektadong Station</strong>
+        <div style="font-size: 0.82rem; color: var(--text-muted); margin-top: 2px;">
+          Next Card / Susunod: <strong class="tabular" id="hub-next-card">#001</strong>
+          &nbsp;•&nbsp; Served Today / Natapos Ngayon: <strong class="tabular" id="hub-served-today">0</strong>
+        </div>
+      </div>
+      <div class="station-bar" id="hub-presence-bar"></div>
+    </section>
+
+    <section class="hub-grid" id="hub-cards-grid"></section>
+
+    <section class="hub-tips">
+      <h3>Quick Start — 1-PC Simulation &amp; 2-Monitor Hospital Deployment</h3>
+      <ul>
+        <li><strong>Outside Pharmacy TV / Monitor:</strong> Open <em>Outside Pharmacy Display Monitor</em> on the screen facing patients, click once to unlock chime &amp; bilingual voice audio, and press <strong>F11</strong> (or Fullscreen).</li>
+        <li><strong>Dual-Monitor Host PC:</strong> Connect the outside TV via HDMI, press <strong>Win + P → Extend</strong>, keep <em>Counter 1</em> on the pharmacist monitor, and drag <em>Outside Pharmacy Display Monitor</em> onto the outside screen.</li>
+        <li><strong>Bookmark Once per Station:</strong> Use <em>Copy URL</em> below to bookmark each counter's exact page on Counters 2, 3, and 4. Default PINs: Staff <code>1234</code> • Admin <code>2468</code> (change in Admin Console).</li>
+      </ul>
+    </section>
+  </main>
+
+  <script>
+    var INJECTED_APP_URL = <?!= JSON.stringify(APP_URL || "") ?>;
+    var INJECTED_SHEET_URL = <?!= JSON.stringify(SHEET_URL || "") ?>;
+
+    (function () {
+      var logoEl = document.getElementById("hub-logo");
+      window.applyHospitalLogo(logoEl, "");
+
+      if (INJECTED_SHEET_URL) {
+        var sheetBtn = document.getElementById("hub-sheet-link");
+        sheetBtn.href = INJECTED_SHEET_URL;
+        sheetBtn.classList.remove("hidden");
+      }
+
+      function updateClock() {
+        var c = window.PharmacyUI.formatManilaClock(new Date());
+        document.getElementById("hub-clock").textContent = c.dateStr + " • " + c.timeStr;
+      }
+      updateClock();
+      setInterval(updateClock, 1000);
+
+      function buildCards(state) {
+        var grid = document.getElementById("hub-cards-grid");
+        grid.innerHTML = "";
+        var counters = (state && state.counters) ? state.counters : [
+          { id: 1, label: "Counter 1", status: "OPEN", formattedNumber: "" },
+          { id: 2, label: "Counter 2", status: "OPEN", formattedNumber: "" },
+          { id: 3, label: "Counter 3", status: "OPEN", formattedNumber: "" },
+          { id: 4, label: "Counter 4", status: "OPEN", formattedNumber: "" }
+        ];
+
+        var definitions = [
+          {
+            cls: "card-display",
+            title: "Outside Pharmacy Display Monitor",
+            badge: "TV / Read-Only",
+            desc: "Bilingual waiting-area TV screen with flashing Now Calling spotlight, 4-counter matrix, chime, and English + Tagalog voice.",
+            url: window.PharmacyUI.buildViewUrl(INJECTED_APP_URL, "display"),
+            btnClass: "btn-amber",
+            openLabel: "Open Display Screen"
+          }
+        ];
+
+        for (var i = 0; i < counters.length; i++) {
+          var ct = counters[i];
+          var badgeText = ct.status === "CLOSED"
+            ? "Closed"
+            : (ct.formattedNumber ? "Serving #" + ct.formattedNumber : "Ready");
+          definitions.push({
+            cls: "card-c" + ct.id,
+            title: ct.label + " — Pharmacist Station",
+            badge: badgeText,
+            desc: "Call Next (Susunod), Recall, Call Specific #, at No-Show controls synced live across all 4 counters.",
+            url: window.PharmacyUI.buildViewUrl(INJECTED_APP_URL, "counter", ct.id),
+            btnClass: "btn-navy",
+            openLabel: "Open " + ct.label
+          });
+        }
+
+        definitions.push({
+          cls: "card-admin",
+          title: "Supervisor / Admin Console",
+          badge: "Admin PIN",
+          desc: "Pamamahala ng Queue: card range, counter labels, display theme, chime & voice, PINs, census, queue reset, and CSV export.",
+          url: window.PharmacyUI.buildViewUrl(INJECTED_APP_URL, "admin"),
+          btnClass: "btn-primary",
+          openLabel: "Open Admin Console"
+        });
+
+        definitions.forEach(function (item) {
+          var card = document.createElement("article");
+          card.className = "hub-card " + item.cls;
+
+          var top = document.createElement("div");
+          top.className = "hub-card-top";
+          var titleWrap = document.createElement("div");
+          var h2 = document.createElement("h2");
+          h2.textContent = item.title;
+          var p = document.createElement("p");
+          p.textContent = item.desc;
+          titleWrap.appendChild(h2);
+          titleWrap.appendChild(p);
+
+          var badge = document.createElement("span");
+          badge.className = "hub-ticket-badge tabular";
+          badge.textContent = item.badge;
+          top.appendChild(titleWrap);
+          top.appendChild(badge);
+
+          var urlBox = document.createElement("div");
+          urlBox.className = "hub-url-box";
+          urlBox.textContent = item.url;
+
+          var actions = document.createElement("div");
+          actions.className = "hub-actions";
+
+          var openLink = document.createElement("a");
+          openLink.className = "btn " + item.btnClass;
+          openLink.href = item.url;
+          openLink.target = "_blank";
+          openLink.rel = "noopener";
+          openLink.textContent = item.openLabel;
+
+          var copyBtn = document.createElement("button");
+          copyBtn.type = "button";
+          copyBtn.className = "btn btn-outline";
+          copyBtn.textContent = "Copy URL";
+          copyBtn.addEventListener("click", function () {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(item.url).then(function () {
+                window.PharmacyUI.showToast("Copied URL for " + item.title, "success");
+              }).catch(function () {
+                window.prompt("Copy this station URL:", item.url);
+              });
+            } else {
+              window.prompt("Copy this station URL:", item.url);
+            }
+          });
+
+          actions.appendChild(openLink);
+          actions.appendChild(copyBtn);
+
+          card.appendChild(top);
+          card.appendChild(urlBox);
+          card.appendChild(actions);
+          grid.appendChild(card);
+        });
+      }
+
+      function applyHubState(res) {
+        if (!res || !res.ok) return;
+        if (res.state) {
+          var s = res.state;
+          document.getElementById("hub-hospital-name").textContent = s.settings.hospitalName;
+          document.getElementById("hub-dept-subtitle").textContent = s.settings.departmentSubtitle;
+          window.applyHospitalLogo(logoEl, s.settings.customLogoUrl);
+          document.getElementById("hub-next-card").textContent = "#" + s.nextFormatted;
+          document.getElementById("hub-served-today").textContent = String((s.todayStats && s.todayStats.totalServed) || 0);
+          buildCards(s);
+        }
+        if (res.presence) {
+          window.PharmacyUI.renderStationPills(document.getElementById("hub-presence-bar"), res.presence, null);
+        }
+      }
+
+      buildCards(null);
+      window.PharmacyUI.gasCall("apiGetState", { role: "hub" })
+        .then(applyHubState)
+        .catch(function (err) {
+          window.PharmacyUI.showToast(err.message, "error");
+        });
+
+      setInterval(function () {
+        if (document.hidden) return;
+        window.PharmacyUI.gasCall("apiGetState", { role: "hub" })
+          .then(applyHubState)
+          .catch(function () {});
+      }, 10000);
+    })();
+  </script>
+</body>
+</html>

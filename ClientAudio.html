@@ -1,0 +1,313 @@
+<script>
+window.PharmacyAudio = (function () {
+  var audioCtx = null;
+  var unlocked = false;
+  var queue = [];
+  var isPlaying = false;
+  var preferredVoice = null;
+
+  var FIL_FEMALE_RE = /\bblessica\b/i;
+  var FIL_MALE_RE = /\bangelo\b/i;
+  var EN_PH_FEMALE_RE = /\brosa\b/i;
+  var EN_PH_MALE_RE = /\bjames\b/i;
+  var FEMALE_VOICE_RE = /\b(aria|jenny|zira|rosa|blessica|michelle|ana|ava|emma|sonia|libby|sara|clara|samantha|victoria|karen|moira|tessa|hazel|susan|catherine|female)\b|google us english(?!.*male)|google uk english female/i;
+  var MALE_VOICE_RE = /\b(guy|david|mark|angelo|james|christopher|andrew|brian|eric|roger|steffan|ryan|george|daniel|alex|arthur|oliver|thomas|male)\b|google uk english male/i;
+
+  function findVoiceInPool(pool, nameRe) {
+    if (!pool || !pool.length) return null;
+    for (var i = 0; i < pool.length; i++) {
+      if ((!nameRe || nameRe.test(pool[i].name)) && /natural|online/i.test(pool[i].name)) {
+        return pool[i];
+      }
+    }
+    for (var j = 0; j < pool.length; j++) {
+      if (!nameRe || nameRe.test(pool[j].name)) {
+        return pool[j];
+      }
+    }
+    return null;
+  }
+
+  function splitVoicePools(voices) {
+    var filPool = [];
+    var enPhPool = [];
+    var enGlobalPool = [];
+    var enAllPool = [];
+
+    for (var i = 0; i < voices.length; i++) {
+      var v = voices[i];
+      var lang = String(v.lang || "");
+      var name = String(v.name || "");
+      if (/^(fil|tl)/i.test(lang) || /filipino|tagalog/i.test(name)) {
+        filPool.push(v);
+      } else if (/^en[-_]PH/i.test(lang) || /english.*philippines/i.test(name)) {
+        enPhPool.push(v);
+        enAllPool.push(v);
+      } else if (/^en/i.test(lang)) {
+        enGlobalPool.push(v);
+        enAllPool.push(v);
+      }
+    }
+    return { filPool: filPool, enPhPool: enPhPool, enGlobalPool: enGlobalPool, enAllPool: enAllPool };
+  }
+
+  function pickVoice(gender, accent) {
+    if (!window.speechSynthesis || typeof window.speechSynthesis.getVoices !== "function") {
+      return { voice: null, matchedGender: false, matchedAccent: false };
+    }
+    var voices = window.speechSynthesis.getVoices() || [];
+    if (!voices.length) return { voice: null, matchedGender: false, matchedAccent: false };
+
+    var targetGender = (gender === "male") ? "male" : "female";
+    var targetAccent = accent || "en_ph";
+    var genderRe = (targetGender === "male") ? MALE_VOICE_RE : FEMALE_VOICE_RE;
+    var pools = splitVoicePools(voices);
+    var v = null;
+
+    if (targetAccent === "fil_ph") {
+      var filRe = (targetGender === "male") ? FIL_MALE_RE : FIL_FEMALE_RE;
+      v = findVoiceInPool(pools.filPool, filRe) || findVoiceInPool(pools.filPool, genderRe);
+      if (v) return { voice: v, matchedGender: true, matchedAccent: true };
+      if (pools.filPool.length) {
+        return { voice: pools.filPool[0], matchedGender: false, matchedAccent: true };
+      }
+      var phFallbackRe = (targetGender === "male") ? EN_PH_MALE_RE : EN_PH_FEMALE_RE;
+      v = findVoiceInPool(pools.enPhPool, phFallbackRe) || findVoiceInPool(pools.enPhPool, genderRe);
+      if (v) return { voice: v, matchedGender: true, matchedAccent: false };
+    } else if (targetAccent === "en_ph") {
+      var enPhRe = (targetGender === "male") ? EN_PH_MALE_RE : EN_PH_FEMALE_RE;
+      v = findVoiceInPool(pools.enPhPool, enPhRe) || findVoiceInPool(pools.enPhPool, genderRe);
+      if (v) return { voice: v, matchedGender: true, matchedAccent: true };
+      if (pools.enPhPool.length) {
+        return { voice: pools.enPhPool[0], matchedGender: false, matchedAccent: true };
+      }
+    }
+
+    var primaryEn = (targetAccent === "en_us" && pools.enGlobalPool.length) ? pools.enGlobalPool : pools.enAllPool;
+    v = findVoiceInPool(primaryEn, genderRe) || findVoiceInPool(pools.enAllPool, genderRe);
+    if (v) {
+      return { voice: v, matchedGender: true, matchedAccent: targetAccent === "en_us" };
+    }
+    var fallbackPool = pools.enAllPool.length ? pools.enAllPool : voices;
+    return { voice: fallbackPool[0], matchedGender: false, matchedAccent: targetAccent === "en_us" };
+  }
+
+  function getVoiceInfo(gender, accent) {
+    if (!window.speechSynthesis || typeof window.speechSynthesis.getVoices !== "function") {
+      return { name: "", lang: "", matchedGender: false, matchedAccent: false, filipinoVoicesAvailable: [] };
+    }
+    var voices = window.speechSynthesis.getVoices() || [];
+    var chosen = pickVoice(gender, accent);
+    var filList = [];
+    for (var i = 0; i < voices.length; i++) {
+      var v = voices[i];
+      if (/^(fil|tl|en[-_]PH)/i.test(String(v.lang || "")) || /blessica|angelo|rosa/i.test(String(v.name || ""))) {
+        filList.push(v.name);
+      }
+    }
+    return {
+      name: chosen.voice ? chosen.voice.name : "",
+      lang: chosen.voice ? chosen.voice.lang : "",
+      matchedGender: chosen.matchedGender,
+      matchedAccent: chosen.matchedAccent,
+      filipinoVoicesAvailable: filList
+    };
+  }
+
+  if (window.speechSynthesis && typeof window.speechSynthesis.addEventListener === "function") {
+    try {
+      window.speechSynthesis.addEventListener("voiceschanged", function () {
+        preferredVoice = pickVoice("female", "en_ph").voice;
+      });
+    } catch (err) {
+      // Ignore if voiceschanged unsupported.
+    }
+  }
+
+  function ensureContext() {
+    var Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return null;
+    if (!audioCtx) {
+      audioCtx = new Ctx();
+    }
+    if (audioCtx.state === "suspended") {
+      audioCtx.resume().catch(function () {});
+    }
+    return audioCtx;
+  }
+
+  function unlock() {
+    unlocked = true;
+    var ctx = ensureContext();
+    if (ctx) {
+      try {
+        var osc = ctx.createOscillator();
+        var gain = ctx.createGain();
+        gain.gain.value = 0.0001;
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.03);
+      } catch (err) {
+        // Ignore silent unlock errors.
+      }
+    }
+    preferredVoice = pickVoice("female", "en_ph").voice;
+    return playHospitalChime();
+  }
+
+  function isUnlocked() {
+    return unlocked;
+  }
+
+  function scheduleBellNote(ctx, freq, startOffset, duration, peakGain) {
+    var now = ctx.currentTime + startOffset;
+    var osc1 = ctx.createOscillator();
+    var osc2 = ctx.createOscillator();
+    var gain = ctx.createGain();
+
+    osc1.type = "sine";
+    osc1.frequency.setValueAtTime(freq, now);
+
+    osc2.type = "triangle";
+    osc2.frequency.setValueAtTime(freq * 2, now);
+
+    var harmGain = ctx.createGain();
+    harmGain.gain.setValueAtTime(0.14, now);
+
+    osc1.connect(gain);
+    osc2.connect(harmGain);
+    harmGain.connect(gain);
+    gain.connect(ctx.destination);
+
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.linearRampToValueAtTime(peakGain, now + 0.025);
+    gain.gain.exponentialRampToValueAtTime(0.0008, now + duration);
+
+    osc1.start(now);
+    osc2.start(now);
+    osc1.stop(now + duration + 0.05);
+    osc2.stop(now + duration + 0.05);
+  }
+
+  function playHospitalChime() {
+    return new Promise(function (resolve) {
+      if (!unlocked) {
+        resolve();
+        return;
+      }
+      var ctx = ensureContext();
+      if (!ctx) {
+        setTimeout(resolve, 200);
+        return;
+      }
+      try {
+        // Calm flagship hospital 2-tone bell: E5 -> C5
+        scheduleBellNote(ctx, 659.25, 0.02, 0.55, 0.24);
+        scheduleBellNote(ctx, 523.25, 0.28, 0.72, 0.26);
+      } catch (err) {
+        resolve();
+        return;
+      }
+      setTimeout(resolve, 760);
+    });
+  }
+
+  function speakText(text, rate, gender, accent) {
+    return new Promise(function (resolve) {
+      if (!unlocked || !window.speechSynthesis || typeof window.SpeechSynthesisUtterance !== "function") {
+        resolve();
+        return;
+      }
+      var done = false;
+      function finish() {
+        if (done) return;
+        done = true;
+        clearTimeout(watchdog);
+        setTimeout(resolve, 180);
+      }
+      var watchdog = setTimeout(finish, 9000);
+
+      try {
+        window.speechSynthesis.cancel();
+        var utter = new window.SpeechSynthesisUtterance(text);
+        var chosen = pickVoice(gender, accent);
+        var activeVoice = chosen.voice || preferredVoice;
+        if (activeVoice) utter.voice = activeVoice;
+        var fallbackLang = accent === "fil_ph" ? "fil-PH" : (accent === "en_ph" ? "en-PH" : "en-US");
+        utter.lang = (activeVoice && activeVoice.lang) ? activeVoice.lang : fallbackLang;
+        utter.rate = (typeof rate === "number" && !isNaN(rate)) ? rate : 0.95;
+        utter.pitch = chosen.matchedGender ? 1.0 : (gender === "male" ? 0.84 : 1.08);
+        utter.volume = 1.0;
+        utter.onend = finish;
+        utter.onerror = finish;
+        window.speechSynthesis.speak(utter);
+      } catch (err) {
+        finish();
+      }
+    });
+  }
+
+  function formatSpokenPhrase(item) {
+    var tpl = (item && item.voiceTemplate)
+      ? String(item.voiceTemplate)
+      : "Number {number}, please proceed to {counter}";
+    var spokenNum = (item.ticketNumber !== undefined && item.ticketNumber !== null)
+      ? String(item.ticketNumber)
+      : String(item.formattedNumber || "");
+    var counterText = String(item.counterLabel || ("Counter " + (item.counterId || "")));
+    return tpl
+      .replace(/\{number\}/gi, spokenNum)
+      .replace(/\{counter\}/gi, counterText);
+  }
+
+  function processNext() {
+    if (isPlaying || queue.length === 0) return;
+    isPlaying = true;
+    var item = queue.shift();
+
+    var mode = item.audioMode || "chime_voice";
+    if (!unlocked || mode === "silent") {
+      isPlaying = false;
+      processNext();
+      return;
+    }
+
+    playHospitalChime().then(function () {
+      if (mode === "chime_voice") {
+        return speakText(
+          formatSpokenPhrase(item),
+          item.voiceRate,
+          item.voiceGender || "female",
+          item.voiceAccent || "en_ph"
+        );
+      }
+      return null;
+    }).then(function () {
+      isPlaying = false;
+      processNext();
+    }).catch(function () {
+      isPlaying = false;
+      processNext();
+    });
+  }
+
+  function enqueueAnnouncement(item) {
+    if (!item || !unlocked) return;
+    if (item.audioMode === "silent") return;
+    if (queue.length >= 8) {
+      queue = queue.slice(-4);
+    }
+    queue.push(item);
+    processNext();
+  }
+
+  return {
+    unlock: unlock,
+    isUnlocked: isUnlocked,
+    playHospitalChime: playHospitalChime,
+    enqueueAnnouncement: enqueueAnnouncement,
+    getVoiceInfo: getVoiceInfo
+  };
+})();
+</script>

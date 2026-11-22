@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Admin Console — ARMMC Pharmacy</title>
+  <?!= include_('AssetLogo') ?>
+  <?!= include_('StylesCommon') ?>
+  <?!= include_('ClientAudio') ?>
+  <style>
+    .admin-wrap {
+      max-width: 1180px;
+      margin: 20px auto 48px;
+      padding: 0 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+    }
+
+    .kpi-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 14px 16px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .kpi-label {
+      font-size: 0.78rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-subtle);
+    }
+
+    .kpi-val {
+      margin-top: 6px;
+      font-size: 1.9rem;
+      font-weight: 900;
+      color: var(--armmc-navy);
+      line-height: 1.1;
+    }
+
+    .admin-grid {
+      display: grid;
+      grid-template-columns: 1.3fr 1fr;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .admin-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .admin-card h2 {
+      margin: 0 0 14px;
+      font-size: 1.08rem;
+      font-weight: 800;
+      color: var(--armmc-navy);
+      border-bottom: 1px solid var(--border-soft);
+      padding-bottom: 10px;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .form-full {
+      grid-column: 1 / -1;
+    }
+
+    .field-label {
+      display: block;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      margin-bottom: 5px;
+    }
+
+    .ops-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .bar-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .bar-row {
+      display: grid;
+      grid-template-columns: 110px 1fr 48px;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.86rem;
+      font-weight: 700;
+    }
+
+    .bar-track {
+      height: 12px;
+      background: var(--surface-muted);
+      border: 1px solid var(--border-soft);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 999px;
+      transition: width 0.3s ease;
+    }
+
+    .log-table-wrap {
+      overflow-x: auto;
+      max-height: 360px;
+      overflow-y: auto;
+      border: 1px solid var(--border-soft);
+      border-radius: 10px;
+    }
+
+    table.log-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.84rem;
+    }
+
+    table.log-table th {
+      position: sticky;
+      top: 0;
+      background: var(--armmc-navy);
+      color: #FFFFFF;
+      text-align: left;
+      padding: 9px 10px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    table.log-table td {
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border-soft);
+      white-space: nowrap;
+    }
+
+    table.log-table tbody tr:nth-child(even) {
+      background: var(--surface-muted);
+    }
+
+    .outcome-pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 0.74rem;
+      font-weight: 800;
+    }
+    .out-COMPLETED { background: #D1FAE5; color: #065F46; }
+    .out-SERVING { background: #DBEAFE; color: #1E40AF; }
+    .out-NO_SHOW { background: #FEE2E2; color: #991B1B; }
+
+    @media (max-width: 940px) {
+      .admin-grid { grid-template-columns: 1fr; }
+      .form-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body class="theme-light">
+  <header class="brand-header">
+    <div class="brand-identity">
+      <div class="brand-logo-wrap">
+        <img id="adm-logo" alt="ARMMC Official Seal" />
+      </div>
+      <div class="brand-titles">
+        <h1 class="brand-title" id="adm-hospital-name">Amang Rodriguez Memorial Medical Center</h1>
+        <p class="brand-subtitle" id="adm-dept-subtitle">Pharmacy Supervisor &amp; Queue Console / Pamamahala ng Queue</p>
+      </div>
+    </div>
+
+    <div class="header-right">
+      <div class="station-bar" id="adm-presence-bar"></div>
+      <button type="button" class="btn btn-ghost-light btn-sm" id="btn-adm-lock">Lock</button>
+      <a class="btn btn-ghost-light btn-sm" id="adm-display-link" target="_blank" rel="noopener">Display</a>
+      <a class="btn btn-ghost-light btn-sm" id="adm-hub-link">Hub</a>
+    </div>
+  </header>
+
+  <main class="admin-wrap">
+    <!-- Top KPIs -->
+    <section class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-label">Served Today / Natapos</div>
+        <div class="kpi-val tabular" id="kpi-served">0</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Active Counters / Bukas</div>
+        <div class="kpi-val tabular" id="kpi-active">4 / 4</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">No-Shows / Wala</div>
+        <div class="kpi-val tabular" id="kpi-noshow">0</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Avg Service Time</div>
+        <div class="kpi-val tabular" id="kpi-avg">00:00</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Next Card / Susunod</div>
+        <div class="kpi-val tabular" id="kpi-next">#001</div>
+      </div>
+    </section>
+
+    <!-- Live Queue Control Bar -->
+    <section class="admin-card">
+      <h2>Live Queue Operations</h2>
+      <div class="ops-row" style="justify-content: space-between;">
+        <form id="form-next-num" class="ops-row">
+          <label for="inp-next-num" style="font-size: 0.88rem; font-weight: 700;">Set Next Card #:</label>
+          <input type="number" class="input-field tabular" id="inp-next-num" style="width: 115px;" min="1" max="9999" required />
+          <button type="submit" class="btn btn-navy">Apply Next #</button>
+        </form>
+
+        <div class="ops-row">
+          <button type="button" class="btn btn-amber" id="btn-test-audio">Test Monitor Sound &amp; Flash / Subukan ang Tunog</button>
+          <button type="button" class="btn btn-danger" id="btn-open-reset">Reset Daily Queue / I-reset ang Queue</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="admin-grid">
+      <!-- Settings Configuration -->
+      <section class="admin-card">
+        <h2>Hospital, Rotation &amp; Display Settings</h2>
+        <form id="form-settings" class="form-grid">
+          <div class="form-full">
+            <label class="field-label" for="set-hospital">Hospital Name</label>
+            <input type="text" class="input-field" id="set-hospital" maxlength="120" required />
+          </div>
+          <div class="form-full">
+            <label class="field-label" for="set-subtitle">Department / Area Subtitle</label>
+            <input type="text" class="input-field" id="set-subtitle" maxlength="140" />
+          </div>
+          <div class="form-full">
+            <label class="field-label" for="set-logo-url">Custom Logo URL (Leave blank to use official ARMMC Seal)</label>
+            <input type="url" class="input-field" id="set-logo-url" placeholder="Uses embedded ARMMC Seal when blank" />
+          </div>
+
+          <div>
+            <label class="field-label" for="set-min">Min Card Number</label>
+            <input type="number" class="input-field tabular" id="set-min" min="1" max="9998" required />
+          </div>
+          <div>
+            <label class="field-label" for="set-max">Max Card Number (Wrap Point)</label>
+            <input type="number" class="input-field tabular" id="set-max" min="2" max="9999" required />
+          </div>
+
+          <div>
+            <label class="field-label" for="set-pad">Zero-Padding Digits</label>
+            <select class="input-field" id="set-pad">
+              <option value="0">None (1, 2, 100)</option>
+              <option value="2">2 Digits (01..99)</option>
+              <option value="3">3 Digits (001..100)</option>
+              <option value="4">4 Digits (0001..)</option>
+            </select>
+          </div>
+          <div>
+            <label class="field-label" for="set-theme">Display Monitor Theme</label>
+            <select class="input-field" id="set-theme">
+              <option value="light">Flagship Clinical Light (Default)</option>
+              <option value="dark">High-Contrast Dark TV</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="field-label" for="set-c1">Counter 1 Label</label>
+            <input type="text" class="input-field" id="set-c1" maxlength="40" required />
+          </div>
+          <div>
+            <label class="field-label" for="set-c2">Counter 2 Label</label>
+            <input type="text" class="input-field" id="set-c2" maxlength="40" required />
+          </div>
+          <div>
+            <label class="field-label" for="set-c3">Counter 3 Label</label>
+            <input type="text" class="input-field" id="set-c3" maxlength="40" required />
+          </div>
+          <div>
+            <label class="field-label" for="set-c4">Counter 4 Label</label>
+            <input type="text" class="input-field" id="set-c4" maxlength="40" required />
+          </div>
+
+          <div>
+            <label class="field-label" for="set-audio">Display Audio Mode</label>
+            <select class="input-field" id="set-audio">
+              <option value="chime_voice">Ding-Dong Chime + Voice</option>
+              <option value="chime_only">Ding-Dong Chime Only</option>
+              <option value="silent">Visual Flash Only (Silent)</option>
+            </select>
+          </div>
+          <div>
+            <label class="field-label" for="set-flash">Spotlight Flash Duration (sec)</label>
+            <input type="number" class="input-field tabular" id="set-flash" min="3" max="15" required />
+          </div>
+
+          <div>
+            <label class="field-label" for="set-rate">Voice Speed (0.6 – 1.3)</label>
+            <input type="number" step="0.05" class="input-field tabular" id="set-rate" min="0.6" max="1.3" required />
+          </div>
+          <div>
+            <label class="field-label" for="set-voice-gender">Announcement Voice / Boses</label>
+            <select class="input-field" id="set-voice-gender">
+              <option value="female">Female Voice (Default)</option>
+              <option value="male">Male Voice</option>
+            </select>
+          </div>
+          <div>
+            <label class="field-label" for="set-voice-accent">Voice Language / Accent</label>
+            <select class="input-field" id="set-voice-accent">
+              <option value="en_ph">Philippine English — Filipino Accent (Rosa / James)</option>
+              <option value="fil_ph">Fluent Filipino / Tagalog (Blessica / Angelo)</option>
+              <option value="en_us">Standard English — US/Global (Aria / Guy / Zira / David)</option>
+            </select>
+          </div>
+          <div>
+            <label class="field-label" for="set-polling">Polling Quota Mode</label>
+            <select class="input-field" id="set-polling">
+              <option value="standard">Standard Clinic Shift (2.5s Display / 6s Counter)</option>
+              <option value="eco_24h">24/7 Eco Mode (4s Display / 12s Counter)</option>
+            </select>
+          </div>
+
+          <div class="form-full">
+            <div id="voice-detect-note" style="font-size: 0.8rem; padding: 8px 11px; border-radius: 8px; background: var(--surface-muted); border: 1px solid var(--border); color: var(--text-muted);">
+              Checking browser voices...
+            </div>
+          </div>
+
+          <div class="form-full">
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px;">
+              <label class="field-label" for="set-voice-tpl" style="margin-bottom: 0;">Voice Phrase Template (<code>{number}</code>, <code>{counter}</code>)</label>
+              <div style="display: flex; gap: 6px;">
+                <button type="button" class="btn btn-outline btn-sm" id="btn-preset-en">English Phrase</button>
+                <button type="button" class="btn btn-outline btn-sm" id="btn-preset-fil">Tagalog Phrase</button>
+              </div>
+            </div>
+            <input type="text" class="input-field" id="set-voice-tpl" maxlength="160" required />
+          </div>
+
+          <div class="form-full">
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px;">
+              <label class="field-label" for="set-ticker" style="margin-bottom: 0;">Outside Monitor Footer Ticker</label>
+              <button type="button" class="btn btn-outline btn-sm" id="btn-reset-ticker">Restore Default / Ibalik sa Default</button>
+            </div>
+            <textarea class="input-field" id="set-ticker" rows="3" maxlength="400"></textarea>
+            <div style="font-size: 0.78rem; color: var(--text-subtle); margin-top: 4px;">
+              Edit for temporary announcements, then click "Restore Default" once the announcement ends.
+            </div>
+          </div>
+
+          <div>
+            <label class="field-label" for="set-staff-pin">New Staff PIN (optional)</label>
+            <input type="password" class="input-field" id="set-staff-pin" placeholder="Leave blank to keep" autocomplete="new-password" />
+          </div>
+          <div>
+            <label class="field-label" for="set-admin-pin">New Admin PIN (optional)</label>
+            <input type="password" class="input-field" id="set-admin-pin" placeholder="Leave blank to keep" autocomplete="new-password" />
+          </div>
+
+          <div class="form-full" style="margin-top: 6px;">
+            <button type="submit" class="btn btn-primary" id="btn-save-settings" style="width: 100%; padding: 13px;">
+              Save All Settings / I-save
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <!-- Daily Census & Export -->
+      <div style="display: flex; flex-direction: column; gap: 18px;">
+        <section class="admin-card">
+          <h2>Today's Dispensing Breakdown</h2>
+          <div class="bar-list" id="counter-bars"></div>
+
+          <div style="margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border-soft); display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+            <input type="date" class="input-field tabular" id="export-date" style="max-width: 170px;" />
+            <button type="button" class="btn btn-navy" id="btn-export-csv">Export CSV</button>
+            <a id="adm-sheet-btn" class="btn btn-outline hidden" target="_blank" rel="noopener">Open Google Sheet</a>
+          </div>
+        </section>
+
+        <section class="admin-card">
+          <h2>Recent Activity Log</h2>
+          <div class="log-table-wrap">
+            <table class="log-table">
+              <thead>
+                <tr>
+                  <th>Ticket</th>
+                  <th>Counter</th>
+                  <th>Type</th>
+                  <th>Called</th>
+                  <th>Outcome</th>
+                </tr>
+              </thead>
+              <tbody id="adm-log-tbody">
+                <tr><td colspan="5" style="text-align: center; color: var(--text-subtle);">No activity yet today.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <!-- Admin PIN Gate Modal -->
+  <div class="modal-backdrop" id="admin-pin-modal">
+    <div class="modal-card">
+      <div class="modal-logo">
+        <img id="adm-pin-logo" alt="ARMMC Official Seal" />
+      </div>
+      <h2 style="margin: 0 0 6px; font-size: 1.2rem; color: var(--armmc-navy);">Supervisor / Admin Unlock</h2>
+      <p style="margin: 0 0 16px; font-size: 0.88rem; color: var(--text-muted);">
+        Enter the Admin PIN to manage queue settings, reset rotation, and export daily reports.
+      </p>
+      <form id="admin-pin-form" style="display: flex; flex-direction: column; gap: 12px; text-align: left;">
+        <input type="password" inputmode="numeric" class="input-field" id="admin-pin-input" placeholder="Enter Admin PIN" autocomplete="off" required />
+        <div id="admin-pin-error" style="color: var(--danger); font-size: 0.84rem; font-weight: 700;" class="hidden"></div>
+        <button type="submit" class="btn btn-primary" id="admin-pin-submit" style="width: 100%; padding: 12px;">
+          Unlock Admin Console
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Confirm Reset Modal -->
+  <div class="modal-backdrop hidden" id="reset-modal">
+    <div class="modal-card">
+      <h2 style="margin: 0 0 8px; font-size: 1.2rem; color: var(--danger);">Confirm Daily Queue Reset?</h2>
+      <p style="margin: 0 0 18px; font-size: 0.9rem; color: var(--text-muted); line-height: 1.5;">
+        This clears all 4 active counters and the missed list, and resets the rotating card pointer back to the Min Card Number. Daily call logs and stats remain saved.
+      </p>
+      <div style="display: flex; gap: 10px;">
+        <button type="button" class="btn btn-outline" id="btn-cancel-reset" style="flex: 1;">Cancel</button>
+        <button type="button" class="btn btn-danger" id="btn-confirm-reset" style="flex: 1;">Yes, Reset Queue</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    var INJECTED_APP_URL = <?!= JSON.stringify(APP_URL || "") ?>;
+    var INJECTED_SHEET_URL = <?!= JSON.stringify(SHEET_URL || "") ?>;
+
+    (function () {
+      var ADMIN_PIN_KEY = "armmc_admin_pin_session";
+      var stationInfo = { role: "admin" };
+      var activePin = "";
+      var lastVersion = -1;
+      var currentState = null;
+
+      window.applyHospitalLogo(document.getElementById("adm-logo"), "");
+      window.applyHospitalLogo(document.getElementById("adm-pin-logo"), "");
+      document.getElementById("adm-hub-link").href = window.PharmacyUI.buildViewUrl(INJECTED_APP_URL, "hub");
+      document.getElementById("adm-display-link").href = window.PharmacyUI.buildViewUrl(INJECTED_APP_URL, "display");
+
+      if (INJECTED_SHEET_URL) {
+        var sBtn = document.getElementById("adm-sheet-btn");
+        sBtn.href = INJECTED_SHEET_URL;
+        sBtn.classList.remove("hidden");
+      }
+
+      // Default export date to today (Manila).
+      try {
+        var manilaToday = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Manila" }).format(new Date());
+        document.getElementById("export-date").value = manilaToday;
+      } catch (err) {
+        document.getElementById("export-date").value = new Date().toISOString().slice(0, 10);
+      }
+
+      function getSavedPin() {
+        try { return window.sessionStorage.getItem(ADMIN_PIN_KEY) || ""; } catch (e) { return ""; }
+      }
+      function savePin(p) {
+        activePin = p;
+        try { window.sessionStorage.setItem(ADMIN_PIN_KEY, p); } catch (e) {}
+      }
+      function clearPin() {
+        activePin = "";
+        try { window.sessionStorage.removeItem(ADMIN_PIN_KEY); } catch (e) {}
+      }
+
+      function showPinModal(msg) {
+        document.getElementById("admin-pin-modal").classList.remove("hidden");
+        var errEl = document.getElementById("admin-pin-error");
+        if (msg) {
+          errEl.textContent = msg;
+          errEl.classList.remove("hidden");
+        } else {
+          errEl.classList.add("hidden");
+        }
+        setTimeout(function () { document.getElementById("admin-pin-input").focus(); }, 60);
+      }
+
+      function hidePinModal() {
+        document.getElementById("admin-pin-modal").classList.add("hidden");
+        document.getElementById("admin-pin-error").classList.add("hidden");
+        document.getElementById("admin-pin-input").value = "";
+      }
+
+      function formatMmSs(totalSec) {
+        var sec = Math.max(0, parseInt(totalSec || 0, 10));
+        var m = Math.floor(sec / 60);
+        var s = sec % 60;
+        return (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s;
+      }
+
+      var PRESET_EN = "Number {number}, please proceed to {counter}";
+      var PRESET_FIL = "Numero {number}, pumunta po sa {counter}";
+
+      function updateVoiceDetectionNote() {
+        var noteEl = document.getElementById("voice-detect-note");
+        if (!noteEl || !window.PharmacyAudio || !window.PharmacyAudio.getVoiceInfo) return;
+        var g = document.getElementById("set-voice-gender").value || "female";
+        var a = document.getElementById("set-voice-accent").value || "en_ph";
+        var info = window.PharmacyAudio.getVoiceInfo(g, a);
+
+        if (info.filipinoVoicesAvailable && info.filipinoVoicesAvailable.length > 0) {
+          noteEl.style.background = "#ECFDF5";
+          noteEl.style.borderColor = "#6EE7B7";
+          noteEl.style.color = "#065F46";
+          noteEl.textContent = "Active on this browser: " + (info.name || "Filipino Voice Ready");
+        } else if (a === "fil_ph" || a === "en_ph") {
+          noteEl.style.background = "#EFF6FF";
+          noteEl.style.borderColor = "#93C5FD";
+          noteEl.style.color = "#1E3A8A";
+          noteEl.textContent = "Tip: Open Outside Display (?view=display) in Microsoft Edge on Windows to unlock free fluent Filipino voices (Blessica, Angelo, Rosa, James). Chrome falls back to: " + (info.name || "Standard English") + ".";
+        } else {
+          noteEl.style.background = "var(--surface-muted)";
+          noteEl.style.borderColor = "var(--border)";
+          noteEl.style.color = "var(--text-muted)";
+          noteEl.textContent = "Active on this browser: " + (info.name || "Browser Default English");
+        }
+      }
+
+      function populateForm(state) {
+        var s = state.settings;
+        document.getElementById("set-hospital").value = s.hospitalName;
+        document.getElementById("set-subtitle").value = s.departmentSubtitle;
+        document.getElementById("set-logo-url").value = s.customLogoUrl || "";
+        document.getElementById("set-min").value = s.minNumber;
+        document.getElementById("set-max").value = s.maxNumber;
+        document.getElementById("set-pad").value = String(s.padDigits);
+        document.getElementById("set-theme").value = s.displayTheme;
+        document.getElementById("set-c1").value = state.counters[0].label;
+        document.getElementById("set-c2").value = state.counters[1].label;
+        document.getElementById("set-c3").value = state.counters[2].label;
+        document.getElementById("set-c4").value = state.counters[3].label;
+        document.getElementById("set-audio").value = s.audioMode;
+        document.getElementById("set-flash").value = s.flashSeconds;
+        document.getElementById("set-rate").value = s.voiceRate;
+        document.getElementById("set-voice-gender").value = s.voiceGender || "female";
+        document.getElementById("set-voice-accent").value = s.voiceAccent || "en_ph";
+        document.getElementById("set-polling").value = s.pollingPreset;
+        document.getElementById("set-voice-tpl").value = s.voiceTemplate;
+        document.getElementById("set-ticker").value = s.tickerMessage;
+        document.getElementById("inp-next-num").value = state.nextNumber;
+        document.getElementById("inp-next-num").min = s.minNumber;
+        document.getElementById("inp-next-num").max = s.maxNumber;
+        updateVoiceDetectionNote();
+      }
+
+      function renderAdmin(state, presence, syncForm) {
+        if (state) {
+          currentState = state;
+          lastVersion = state.version;
+          document.getElementById("adm-hospital-name").textContent = state.settings.hospitalName;
+          window.applyHospitalLogo(document.getElementById("adm-logo"), state.settings.customLogoUrl);
+
+          var stats = state.todayStats || {};
+          document.getElementById("kpi-served").textContent = String(stats.totalServed || 0);
+          document.getElementById("kpi-noshow").textContent = String(stats.totalNoShow || 0);
+          document.getElementById("kpi-avg").textContent = formatMmSs(stats.avgServiceSeconds || 0);
+          document.getElementById("kpi-next").textContent = "#" + state.nextFormatted;
+
+          var openCount = 0;
+          for (var i = 0; i < state.counters.length; i++) {
+            if (state.counters[i].status === "OPEN") openCount++;
+          }
+          document.getElementById("kpi-active").textContent = openCount + " / 4";
+
+          // Counter Breakdown Bars
+          var barsWrap = document.getElementById("counter-bars");
+          barsWrap.innerHTML = "";
+          var per = stats.perCounter || {};
+          var maxCount = 1;
+          for (var k = 1; k <= 4; k++) {
+            var v = per[String(k)] || 0;
+            if (v > maxCount) maxCount = v;
+          }
+          var colors = { 1: "var(--c1)", 2: "var(--c2)", 3: "var(--c3)", 4: "var(--c4)" };
+          for (var c = 0; c < state.counters.length; c++) {
+            var ctr = state.counters[c];
+            var count = per[String(ctr.id)] || 0;
+            var pct = Math.round((count / maxCount) * 100);
+
+            var row = document.createElement("div");
+            row.className = "bar-row";
+            var lbl = document.createElement("span");
+            lbl.textContent = ctr.label;
+            var track = document.createElement("div");
+            track.className = "bar-track";
+            var fill = document.createElement("div");
+            fill.className = "bar-fill";
+            fill.style.width = pct + "%";
+            fill.style.background = colors[ctr.id] || "var(--armmc-blue)";
+            track.appendChild(fill);
+            var num = document.createElement("span");
+            num.className = "tabular";
+            num.style.textAlign = "right";
+            num.textContent = String(count);
+
+            row.appendChild(lbl);
+            row.appendChild(track);
+            row.appendChild(num);
+            barsWrap.appendChild(row);
+          }
+
+          // Recent Log Table
+          var tbody = document.getElementById("adm-log-tbody");
+          tbody.innerHTML = "";
+          var logs = state.recentLogEntries || [];
+          if (logs.length === 0) {
+            var trEmpty = document.createElement("tr");
+            var tdEmpty = document.createElement("td");
+            tdEmpty.colSpan = 5;
+            tdEmpty.style.textAlign = "center";
+            tdEmpty.style.color = "var(--text-subtle)";
+            tdEmpty.textContent = "No activity yet today.";
+            trEmpty.appendChild(tdEmpty);
+            tbody.appendChild(trEmpty);
+          } else {
+            logs.forEach(function (entry) {
+              var tr = document.createElement("tr");
+              var td1 = document.createElement("td");
+              td1.className = "tabular";
+              td1.style.fontWeight = "800";
+              td1.textContent = "#" + entry.formattedNumber;
+
+              var td2 = document.createElement("td");
+              td2.textContent = entry.counterLabel;
+
+              var td3 = document.createElement("td");
+              td3.textContent = entry.callType;
+
+              var td4 = document.createElement("td");
+              td4.className = "tabular";
+              td4.textContent = window.PharmacyUI.formatManilaShortTime(entry.calledAt);
+
+              var td5 = document.createElement("td");
+              var pill = document.createElement("span");
+              pill.className = "outcome-pill out-" + entry.outcome;
+              pill.textContent = entry.outcome;
+              td5.appendChild(pill);
+
+              tr.appendChild(td1);
+              tr.appendChild(td2);
+              tr.appendChild(td3);
+              tr.appendChild(td4);
+              tr.appendChild(td5);
+              tbody.appendChild(tr);
+            });
+          }
+
+          if (syncForm) populateForm(state);
+        }
+
+        if (presence) {
+          window.PharmacyUI.renderStationPills(document.getElementById("adm-presence-bar"), presence, null);
+        }
+      }
+
+      function callAdmin(methodName, args, successMsg, syncForm) {
+        if (!activePin) {
+          showPinModal("Please unlock with Admin PIN.");
+          return Promise.resolve(null);
+        }
+        return window.PharmacyUI.gasCall.apply(null, [methodName].concat(args))
+          .then(function (res) {
+            if (!res || !res.ok) {
+              if (res && res.code === "UNAUTHORIZED") {
+                clearPin();
+                showPinModal(res.error || "Invalid Admin PIN.");
+                return null;
+              }
+              window.PharmacyUI.showToast((res && res.error) ? res.error : "Action failed.", "error");
+              return null;
+            }
+            renderAdmin(res.state, res.presence, Boolean(syncForm));
+            if (successMsg) window.PharmacyUI.showToast(successMsg, "success");
+            return res;
+          })
+          .catch(function (err) {
+            window.PharmacyUI.showToast(err.message, "error");
+            return null;
+          });
+      }
+
+      document.getElementById("form-settings").addEventListener("submit", function (ev) {
+        ev.preventDefault();
+        var patch = {
+          hospitalName: document.getElementById("set-hospital").value,
+          departmentSubtitle: document.getElementById("set-subtitle").value,
+          customLogoUrl: document.getElementById("set-logo-url").value,
+          minNumber: parseInt(document.getElementById("set-min").value, 10),
+          maxNumber: parseInt(document.getElementById("set-max").value, 10),
+          padDigits: parseInt(document.getElementById("set-pad").value, 10),
+          displayTheme: document.getElementById("set-theme").value,
+          counterLabels: [
+            document.getElementById("set-c1").value,
+            document.getElementById("set-c2").value,
+            document.getElementById("set-c3").value,
+            document.getElementById("set-c4").value
+          ],
+          audioMode: document.getElementById("set-audio").value,
+          flashSeconds: parseInt(document.getElementById("set-flash").value, 10),
+          voiceRate: parseFloat(document.getElementById("set-rate").value),
+          voiceGender: document.getElementById("set-voice-gender").value,
+          voiceAccent: document.getElementById("set-voice-accent").value,
+          pollingPreset: document.getElementById("set-polling").value,
+          voiceTemplate: document.getElementById("set-voice-tpl").value,
+          tickerMessage: document.getElementById("set-ticker").value
+        };
+        var newStaff = document.getElementById("set-staff-pin").value.trim();
+        var newAdmin = document.getElementById("set-admin-pin").value.trim();
+        if (newStaff) patch.staffPin = newStaff;
+        if (newAdmin) patch.adminPin = newAdmin;
+
+        callAdmin("apiUpdateSettings", [patch, activePin, stationInfo], "Settings saved & synced.", true)
+          .then(function (res) {
+            if (res && res.ok) {
+              if (newAdmin) savePin(newAdmin);
+              document.getElementById("set-staff-pin").value = "";
+              document.getElementById("set-admin-pin").value = "";
+            }
+          });
+      });
+
+      document.getElementById("btn-preset-en").addEventListener("click", function () {
+        document.getElementById("set-voice-tpl").value = PRESET_EN;
+      });
+      document.getElementById("btn-preset-fil").addEventListener("click", function () {
+        document.getElementById("set-voice-tpl").value = PRESET_FIL;
+      });
+      document.getElementById("set-voice-gender").addEventListener("change", updateVoiceDetectionNote);
+      document.getElementById("set-voice-accent").addEventListener("change", function () {
+        var accentVal = this.value;
+        var tplEl = document.getElementById("set-voice-tpl");
+        var currentTpl = tplEl.value.trim();
+        if (accentVal === "fil_ph" && currentTpl === PRESET_EN) {
+          tplEl.value = PRESET_FIL;
+        } else if ((accentVal === "en_ph" || accentVal === "en_us") && currentTpl === PRESET_FIL) {
+          tplEl.value = PRESET_EN;
+        }
+        updateVoiceDetectionNote();
+      });
+      if (window.speechSynthesis && typeof window.speechSynthesis.addEventListener === "function") {
+        try {
+          window.speechSynthesis.addEventListener("voiceschanged", updateVoiceDetectionNote);
+        } catch (err) {}
+      }
+      updateVoiceDetectionNote();
+
+      var FALLBACK_DEFAULT_TICKER = "ARMMC PHARMACY: Please prepare your prescription and hand over your physical queue number card when called. / Pakihanda ang inyong reseta at ibigay ang inyong queue number card sa parmasyutiko pagkatawag. Maraming salamat po!";
+
+      document.getElementById("btn-reset-ticker").addEventListener("click", function () {
+        var defaultMsg = (currentState && currentState.settings && currentState.settings.defaultTickerMessage)
+          ? currentState.settings.defaultTickerMessage
+          : FALLBACK_DEFAULT_TICKER;
+        document.getElementById("set-ticker").value = defaultMsg;
+        callAdmin(
+          "apiUpdateSettings",
+          [{ tickerMessage: defaultMsg }, activePin, stationInfo],
+          "Default ticker message restored & live on Display!",
+          false
+        );
+      });
+
+      document.getElementById("form-next-num").addEventListener("submit", function (ev) {
+        ev.preventDefault();
+        var val = parseInt(document.getElementById("inp-next-num").value, 10);
+        callAdmin("apiSetNextNumber", [val, activePin, stationInfo], "Next rotating card updated.", true);
+      });
+
+      document.getElementById("btn-test-audio").addEventListener("click", function () {
+        callAdmin("apiTestAudio", [activePin, stationInfo], "Test flash & sound sent to Outside Display.", false);
+      });
+
+      document.getElementById("btn-open-reset").addEventListener("click", function () {
+        document.getElementById("reset-modal").classList.remove("hidden");
+      });
+      document.getElementById("btn-cancel-reset").addEventListener("click", function () {
+        document.getElementById("reset-modal").classList.add("hidden");
+      });
+      document.getElementById("btn-confirm-reset").addEventListener("click", function () {
+        document.getElementById("reset-modal").classList.add("hidden");
+        callAdmin("apiResetQueue", [activePin, stationInfo], "Daily queue reset back to Min Card.", true);
+      });
+
+      document.getElementById("btn-export-csv").addEventListener("click", function () {
+        if (!activePin) { showPinModal("Please enter Admin PIN."); return; }
+        var d = document.getElementById("export-date").value;
+        window.PharmacyUI.gasCall("apiExportCsv", d, activePin)
+          .then(function (res) {
+            if (!res || !res.ok) {
+              window.PharmacyUI.showToast((res && res.error) || "CSV export failed.", "error");
+              return;
+            }
+            var blob = new Blob([res.csv], { type: "text/csv;charset=utf-8;" });
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement("a");
+            a.href = url;
+            a.download = res.filename || "ARMMC_Pharmacy_Queue.csv";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            window.PharmacyUI.showToast("Exported " + res.filename, "success");
+          })
+          .catch(function (err) {
+            window.PharmacyUI.showToast(err.message, "error");
+          });
+      });
+
+      document.getElementById("btn-adm-lock").addEventListener("click", function () {
+        clearPin();
+        showPinModal("");
+      });
+
+      document.getElementById("admin-pin-form").addEventListener("submit", function (ev) {
+        ev.preventDefault();
+        var pinVal = document.getElementById("admin-pin-input").value.trim();
+        var btn = document.getElementById("admin-pin-submit");
+        btn.disabled = true;
+
+        window.PharmacyUI.gasCall("apiVerifyPin", "admin", pinVal)
+          .then(function (res) {
+            if (!res || !res.ok) {
+              document.getElementById("admin-pin-error").textContent = (res && res.error) || "Invalid Admin PIN.";
+              document.getElementById("admin-pin-error").classList.remove("hidden");
+              return;
+            }
+            savePin(pinVal);
+            hidePinModal();
+            if (res.state) renderAdmin(res.state, null, true);
+          })
+          .catch(function (err) {
+            document.getElementById("admin-pin-error").textContent = err.message;
+            document.getElementById("admin-pin-error").classList.remove("hidden");
+          })
+          .finally(function () {
+            btn.disabled = false;
+          });
+      });
+
+      function pollAdmin() {
+        if (document.hidden) return;
+        window.PharmacyUI.gasCall("apiPollState", lastVersion, stationInfo)
+          .then(function (res) {
+            if (res && res.ok) {
+              renderAdmin(res.changed ? res.state : null, res.presence, false);
+            }
+          })
+          .catch(function () {});
+      }
+
+      var saved = getSavedPin();
+      if (saved) {
+        window.PharmacyUI.gasCall("apiVerifyPin", "admin", saved)
+          .then(function (res) {
+            if (res && res.ok) {
+              activePin = saved;
+              hidePinModal();
+              if (res.state) renderAdmin(res.state, null, true);
+            } else {
+              clearPin();
+              showPinModal("");
+            }
+          })
+          .catch(function () {
+            showPinModal("");
+          });
+      } else {
+        showPinModal("");
+      }
+
+      window.PharmacyUI.gasCall("apiGetState", stationInfo)
+        .then(function (res) {
+          if (res && res.ok) renderAdmin(res.state, res.presence, !activePin);
+        })
+        .catch(function () {});
+
+      setInterval(pollAdmin, 6000);
+    })();
+  </script>
+</body>
+</html>
