@@ -326,9 +326,9 @@
           <div>
             <label class="field-label" for="set-voice-accent">Voice Language / Accent</label>
             <select class="input-field" id="set-voice-accent">
-              <option value="en_ph">Philippine English — Filipino Accent (Rosa / James)</option>
-              <option value="fil_ph">Fluent Filipino / Tagalog (Blessica / Angelo)</option>
-              <option value="en_us">Standard English — US/Global (Aria / Guy / Zira / David)</option>
+              <option value="en_ph">Philippine English — Rosa / James (Embedded AI Voice, Smart TV Ready)</option>
+              <option value="fil_ph">Taglish / Filipino — Blessica / Angelo (Embedded AI Voice, Smart TV Ready)</option>
+              <option value="en_us">Standard English — Browser TTS (PC only; falls back to Embedded Voice on Smart TV)</option>
             </select>
           </div>
           <div>
@@ -531,21 +531,16 @@
         var a = document.getElementById("set-voice-accent").value || "en_ph";
         var info = window.PharmacyAudio.getVoiceInfo(g, a);
 
-        if (info.filipinoVoicesAvailable && info.filipinoVoicesAvailable.length > 0) {
+        if (info.isEmbedded) {
           noteEl.style.background = "#ECFDF5";
           noteEl.style.borderColor = "#6EE7B7";
           noteEl.style.color = "#065F46";
-          noteEl.textContent = "Active on this browser: " + (info.name || "Filipino Voice Ready");
-        } else if (a === "fil_ph" || a === "en_ph") {
-          noteEl.style.background = "#EFF6FF";
-          noteEl.style.borderColor = "#93C5FD";
-          noteEl.style.color = "#1E3A8A";
-          noteEl.textContent = "Tip: Open Outside Display (?view=display) in Microsoft Edge on Windows to unlock free fluent Filipino voices (Blessica, Angelo, Rosa, James). Chrome falls back to: " + (info.name || "Standard English") + ".";
+          noteEl.textContent = "Smart TV Ready (Embedded AI MP3): " + (info.name || "Embedded Filipino AI Voice");
         } else {
           noteEl.style.background = "var(--surface-muted)";
           noteEl.style.borderColor = "var(--border)";
           noteEl.style.color = "var(--text-muted)";
-          noteEl.textContent = "Active on this browser: " + (info.name || "Browser Default English");
+          noteEl.textContent = "PC Browser TTS: " + (info.name || "Browser Default English") + " (falls back to embedded Rosa on Smart TVs).";
         }
       }
 

@@ -1,10 +1,40 @@
 <script>
 window.PharmacyAudio = (function () {
   var audioCtx = null;
+  var sharedAudioEl = null;
   var unlocked = false;
   var queue = [];
   var isPlaying = false;
   var preferredVoice = null;
+  var decodedCache = {};
+
+  var SILENT_WAV_URI = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA";
+
+  var EMBEDDED_META = {
+    fil_ph: {
+      name: "Blessica — Embedded Taglish Female AI Voice (Smart TV Ready)",
+      lang: "fil-PH"
+    },
+    en_ph: {
+      name: "Rosa — Embedded PH-English Female AI Voice (Smart TV Ready)",
+      lang: "en-PH"
+    },
+    fil_ph_male: {
+      name: "Angelo — Embedded Taglish Male AI Voice (Smart TV Ready)",
+      lang: "fil-PH"
+    },
+    en_ph_male: {
+      name: "James — Embedded PH-English Male AI Voice (Smart TV Ready)",
+      lang: "en-PH"
+    }
+  };
+
+  function getEmbeddedPackKey(gender, accent) {
+    var isMale = (gender === "male");
+    if (accent === "fil_ph") return isMale ? "fil_ph_male" : "fil_ph";
+    if (accent === "en_ph") return isMale ? "en_ph_male" : "en_ph";
+    return null;
+  }
 
   var FIL_FEMALE_RE = /\bblessica\b/i;
   var FIL_MALE_RE = /\bangelo\b/i;
@@ -93,24 +123,52 @@ window.PharmacyAudio = (function () {
   }
 
   function getVoiceInfo(gender, accent) {
-    if (!window.speechSynthesis || typeof window.speechSynthesis.getVoices !== "function") {
-      return { name: "", lang: "", matchedGender: false, matchedAccent: false, filipinoVoicesAvailable: [] };
+    var targetAccent = accent || "en_ph";
+    var targetGender = (gender === "male") ? "male" : "female";
+    var embeddedList = [
+      "Blessica (Taglish Female)",
+      "Angelo (Taglish Male)",
+      "Rosa (PH-English Female)",
+      "James (PH-English Male)"
+    ];
+    var packs = window.ARMMC_VOICE_PACKS || {};
+    var packKey = getEmbeddedPackKey(targetGender, targetAccent);
+
+    if (packKey) {
+      var livePack = packs[packKey] || packs[targetAccent];
+      var meta = EMBEDDED_META[packKey] || EMBEDDED_META[targetAccent];
+      return {
+        name: (livePack && livePack.name) ? livePack.name : meta.name,
+        lang: (livePack && livePack.lang) ? livePack.lang : meta.lang,
+        matchedGender: true,
+        matchedAccent: true,
+        isEmbedded: true,
+        filipinoVoicesAvailable: embeddedList
+      };
     }
-    var voices = window.speechSynthesis.getVoices() || [];
-    var chosen = pickVoice(gender, accent);
-    var filList = [];
-    for (var i = 0; i < voices.length; i++) {
-      var v = voices[i];
-      if (/^(fil|tl|en[-_]PH)/i.test(String(v.lang || "")) || /blessica|angelo|rosa/i.test(String(v.name || ""))) {
-        filList.push(v.name);
-      }
+
+    var chosen = pickVoice(targetGender, targetAccent);
+    if (chosen.voice) {
+      return {
+        name: chosen.voice.name,
+        lang: chosen.voice.lang,
+        matchedGender: chosen.matchedGender,
+        matchedAccent: chosen.matchedAccent,
+        isEmbedded: false,
+        filipinoVoicesAvailable: embeddedList
+      };
     }
+
+    var fbKey = (targetGender === "male") ? "en_ph_male" : "en_ph";
+    var fallbackPack = packs[fbKey] || packs.en_ph || packs.fil_ph_male || packs.fil_ph;
+    var fbMeta = EMBEDDED_META[fbKey];
     return {
-      name: chosen.voice ? chosen.voice.name : "",
-      lang: chosen.voice ? chosen.voice.lang : "",
-      matchedGender: chosen.matchedGender,
-      matchedAccent: chosen.matchedAccent,
-      filipinoVoicesAvailable: filList
+      name: (fallbackPack && fallbackPack.name) ? fallbackPack.name : fbMeta.name,
+      lang: (fallbackPack && fallbackPack.lang) ? fallbackPack.lang : fbMeta.lang,
+      matchedGender: true,
+      matchedAccent: false,
+      isEmbedded: true,
+      filipinoVoicesAvailable: embeddedList
     };
   }
 
@@ -130,10 +188,30 @@ window.PharmacyAudio = (function () {
     if (!audioCtx) {
       audioCtx = new Ctx();
     }
-    if (audioCtx.state === "suspended") {
-      audioCtx.resume().catch(function () {});
+    if (audioCtx.state === "suspended" && typeof audioCtx.resume === "function") {
+      try {
+        var p = audioCtx.resume();
+        if (p && typeof p.then === "function") p.then(function () {}, function () {});
+      } catch (err) {
+        // Ignore resume errors.
+      }
     }
     return audioCtx;
+  }
+
+  function ensureSharedAudioEl() {
+    if (!sharedAudioEl && typeof window.Audio === "function") {
+      try {
+        sharedAudioEl = new window.Audio();
+        sharedAudioEl.preload = "auto";
+        if (typeof sharedAudioEl.setAttribute === "function") {
+          sharedAudioEl.setAttribute("playsinline", "");
+        }
+      } catch (err) {
+        sharedAudioEl = null;
+      }
+    }
+    return sharedAudioEl;
   }
 
   function unlock() {
@@ -152,6 +230,32 @@ window.PharmacyAudio = (function () {
         // Ignore silent unlock errors.
       }
     }
+
+    var el = ensureSharedAudioEl();
+    if (el) {
+      try {
+        el.src = SILENT_WAV_URI;
+        el.volume = 0.001;
+        var playPromise = el.play();
+        if (playPromise && typeof playPromise.then === "function") {
+          playPromise.then(
+            function () {
+              try { el.pause(); } catch (e) {}
+              el.volume = 1.0;
+            },
+            function () {
+              el.volume = 1.0;
+            }
+          );
+        } else {
+          try { el.pause(); } catch (e2) {}
+          el.volume = 1.0;
+        }
+      } catch (err) {
+        el.volume = 1.0;
+      }
+    }
+
     preferredVoice = pickVoice("female", "en_ph").voice;
     return playHospitalChime();
   }
@@ -213,6 +317,275 @@ window.PharmacyAudio = (function () {
     });
   }
 
+  function decomposeNumberToClipKeys(num) {
+    var n = parseInt(num, 10);
+    if (isNaN(n) || n < 0 || n > 9999) return [];
+
+    if (n === 0) {
+      return [{ key: "n0", gapAfter: 0.08 }];
+    }
+    if (n >= 1 && n <= 19) {
+      return [{ key: "n" + n, gapAfter: 0.08 }];
+    }
+    if (n >= 20 && n <= 99) {
+      var tens = Math.floor(n / 10) * 10;
+      var ones = n % 10;
+      if (ones === 0) {
+        return [{ key: "n" + tens, gapAfter: 0.08 }];
+      }
+      return [
+        { key: "n" + tens, gapAfter: 0.015 },
+        { key: "n" + ones, gapAfter: 0.08 }
+      ];
+    }
+    if (n === 100) {
+      return [{ key: "n100", gapAfter: 0.08 }];
+    }
+    if (n >= 101 && n <= 199) {
+      return [{ key: "n100", gapAfter: 0.03 }].concat(decomposeNumberToClipKeys(n % 100));
+    }
+    if (n >= 200 && n <= 999) {
+      var hundreds = Math.floor(n / 100);
+      var rem = n % 100;
+      var segs = [
+        { key: "n" + hundreds, gapAfter: 0.02 },
+        { key: "hundred", gapAfter: rem ? 0.03 : 0.08 }
+      ];
+      if (rem) {
+        segs = segs.concat(decomposeNumberToClipKeys(rem));
+      }
+      return segs;
+    }
+
+    var digits = String(n).split("");
+    var out = [];
+    for (var i = 0; i < digits.length; i++) {
+      out.push({ key: "n" + digits[i], gapAfter: 0.04 });
+    }
+    return out;
+  }
+
+  function buildAnnouncementSegments(pack, item) {
+    if (!pack || !pack.clips || !item) return null;
+    var cid = parseInt(item.counterId, 10);
+    if (isNaN(cid) || cid < 1 || cid > 4) return null;
+
+    var rawNum = (item.ticketNumber !== undefined && item.ticketNumber !== null)
+      ? item.ticketNumber
+      : item.formattedNumber;
+    var num = parseInt(rawNum, 10);
+    if (isNaN(num) || num < 0 || num > 9999) return null;
+
+    var clips = pack.clips;
+    var halfKey = "h1_" + num;
+    var endCounterKey = "end_c" + cid;
+
+    // 1. Two-half natural phrase mode ("Numero 24," + "pumunta po sa Counter 2.")
+    if (clips[halfKey] && clips[endCounterKey]) {
+      return [
+        { key: halfKey, gapAfter: 0.14 },
+        { key: endCounterKey, gapAfter: 0.0 }
+      ];
+    }
+
+    // 2. Modular fallback inside the same pack
+    if (!clips.prefix) return null;
+    var numSegs = decomposeNumberToClipKeys(num);
+    if (!numSegs.length) return null;
+    for (var i = 0; i < numSegs.length; i++) {
+      if (!clips[numSegs[i].key]) return null;
+    }
+    numSegs[numSegs.length - 1].gapAfter = 0.14;
+
+    if (clips[endCounterKey]) {
+      return [{ key: "prefix", gapAfter: 0.04 }]
+        .concat(numSegs)
+        .concat([{ key: endCounterKey, gapAfter: 0.0 }]);
+    }
+
+    if (clips.bridge && clips["c" + cid]) {
+      return [{ key: "prefix", gapAfter: 0.04 }]
+        .concat(numSegs)
+        .concat([
+          { key: "bridge", gapAfter: 0.04 },
+          { key: "c" + cid, gapAfter: 0.0 }
+        ]);
+    }
+
+    return null;
+  }
+
+  function measureTrimmedBounds(audioBuffer) {
+    if (!audioBuffer || typeof audioBuffer.getChannelData !== "function") {
+      return { buffer: audioBuffer, offset: 0, duration: audioBuffer ? audioBuffer.duration : 0 };
+    }
+    var data = audioBuffer.getChannelData(0);
+    var sampleRate = audioBuffer.sampleRate || 24000;
+    var firstIdx = -1;
+    var lastIdx = -1;
+
+    for (var i = 0; i < data.length; i++) {
+      if (Math.abs(data[i]) > 0.012) {
+        firstIdx = i;
+        break;
+      }
+    }
+    if (firstIdx === -1) {
+      return { buffer: audioBuffer, offset: 0, duration: audioBuffer.duration };
+    }
+    for (var j = data.length - 1; j >= firstIdx; j--) {
+      if (Math.abs(data[j]) > 0.012) {
+        lastIdx = j;
+        break;
+      }
+    }
+
+    var startSec = Math.max(0, (firstIdx / sampleRate) - 0.015);
+    var endSec = Math.min(audioBuffer.duration, (lastIdx / sampleRate) + 0.035);
+    var maxDur = Math.max(0, audioBuffer.duration - startSec);
+    return {
+      buffer: audioBuffer,
+      offset: startSec,
+      duration: Math.min(maxDur, Math.max(0.04, endSec - startSec))
+    };
+  }
+
+  function decodeBase64Clip(ctx, cacheKey, b64) {
+    if (decodedCache[cacheKey]) {
+      return Promise.resolve(decodedCache[cacheKey]);
+    }
+    return new Promise(function (resolve, reject) {
+      try {
+        var bin = window.atob(b64);
+        var len = bin.length;
+        var bytes = new Uint8Array(len);
+        for (var i = 0; i < len; i++) {
+          bytes[i] = bin.charCodeAt(i);
+        }
+        // Use callback form of decodeAudioData for Smart TV WebKit / Tizen / webOS compatibility.
+        ctx.decodeAudioData(
+          bytes.buffer,
+          function (decoded) {
+            var measured = measureTrimmedBounds(decoded);
+            decodedCache[cacheKey] = measured;
+            resolve(measured);
+          },
+          function (err) {
+            reject(err || new Error("decodeAudioData failed"));
+          }
+        );
+      } catch (err) {
+        reject(err);
+      }
+    });
+  }
+
+  function computePlaybackRate(voiceRate) {
+    if (typeof voiceRate !== "number" || isNaN(voiceRate)) return 1.0;
+    // Preserve natural pitch and cadence at default speeds (0.90..1.05).
+    if (voiceRate >= 0.90 && voiceRate <= 1.05) return 1.0;
+    return Math.min(1.25, Math.max(0.75, voiceRate));
+  }
+
+  function playEmbeddedWebAudio(pack, segments, voiceRate) {
+    var ctx = ensureContext();
+    if (!ctx) {
+      return Promise.reject(new Error("Web Audio unavailable"));
+    }
+
+    var decodePromises = [];
+    for (var i = 0; i < segments.length; i++) {
+      var key = segments[i].key;
+      decodePromises.push(decodeBase64Clip(ctx, pack.id + ":" + key, pack.clips[key]));
+    }
+
+    return Promise.all(decodePromises).then(function (items) {
+      return new Promise(function (resolve) {
+        var done = false;
+        function finish() {
+          if (done) return;
+          done = true;
+          clearTimeout(playTimer);
+          clearTimeout(watchdog);
+          resolve();
+        }
+
+        var rateRatio = computePlaybackRate(voiceRate);
+        var cursor = ctx.currentTime + 0.04;
+        for (var j = 0; j < items.length; j++) {
+          var item = items[j];
+          var src = ctx.createBufferSource();
+          src.buffer = item.buffer;
+          if (rateRatio !== 1.0 && src.playbackRate) {
+            src.playbackRate.value = rateRatio;
+          }
+          src.connect(ctx.destination);
+          src.start(cursor, item.offset, item.duration);
+          cursor += (item.duration / rateRatio) + (segments[j].gapAfter || 0);
+        }
+
+        var totalMs = Math.ceil(Math.max(0, cursor - ctx.currentTime) * 1000) + 120;
+        var playTimer = setTimeout(finish, totalMs);
+        var watchdog = setTimeout(finish, Math.max(totalMs + 2000, 12000));
+      });
+    });
+  }
+
+  function playSingleHtmlClip(el, dataUri, rateRatio) {
+    return new Promise(function (resolve) {
+      var done = false;
+      function finish() {
+        if (done) return;
+        done = true;
+        clearTimeout(watchdog);
+        el.onended = null;
+        el.onerror = null;
+        resolve();
+      }
+      var watchdog = setTimeout(finish, 4000);
+      el.onended = finish;
+      el.onerror = finish;
+      try {
+        el.pause();
+        el.src = dataUri;
+        try {
+          el.playbackRate = rateRatio;
+        } catch (err) {}
+        var p = el.play();
+        if (p && typeof p.then === "function") {
+          p.then(function () {}, finish);
+        }
+      } catch (err) {
+        finish();
+      }
+    });
+  }
+
+  function playEmbeddedHtmlAudio(pack, segments, voiceRate) {
+    var el = ensureSharedAudioEl();
+    if (!el) return Promise.resolve();
+
+    var mime = pack.mime || "audio/mpeg";
+    var rateRatio = computePlaybackRate(voiceRate);
+    var chain = Promise.resolve();
+
+    for (var i = 0; i < segments.length; i++) {
+      (function (seg) {
+        var uri = "data:" + mime + ";base64," + pack.clips[seg.key];
+        chain = chain.then(function () {
+          return playSingleHtmlClip(el, uri, rateRatio);
+        }).then(function () {
+          var gapMs = Math.round((seg.gapAfter || 0) * 1000);
+          if (gapMs > 0) {
+            return new Promise(function (res) { setTimeout(res, gapMs); });
+          }
+          return null;
+        });
+      })(segments[i]);
+    }
+    return chain;
+  }
+
   function speakText(text, rate, gender, accent) {
     return new Promise(function (resolve) {
       if (!unlocked || !window.speechSynthesis || typeof window.SpeechSynthesisUtterance !== "function") {
@@ -261,6 +634,45 @@ window.PharmacyAudio = (function () {
       .replace(/\{counter\}/gi, counterText);
   }
 
+  function resolvePlayablePackAndSegments(gender, accent, item) {
+    var packs = window.ARMMC_VOICE_PACKS || {};
+    var isMale = (gender === "male");
+    var order = [];
+
+    if (accent === "fil_ph") {
+      order = isMale
+        ? ["fil_ph_male", "fil_ph", "en_ph_male", "en_ph"]
+        : ["fil_ph", "fil_ph_male", "en_ph", "en_ph_male"];
+    } else if (accent === "en_ph") {
+      order = isMale
+        ? ["en_ph_male", "en_ph", "fil_ph_male", "fil_ph"]
+        : ["en_ph", "en_ph_male", "fil_ph", "fil_ph_male"];
+    } else if (accent === "en_us") {
+      var hasBrowserVoices = window.speechSynthesis &&
+        typeof window.speechSynthesis.getVoices === "function" &&
+        (window.speechSynthesis.getVoices() || []).length > 0;
+      if (!hasBrowserVoices) {
+        order = isMale
+          ? ["en_ph_male", "en_ph", "fil_ph_male", "fil_ph"]
+          : ["en_ph", "en_ph_male", "fil_ph", "fil_ph_male"];
+      }
+    } else {
+      order = isMale
+        ? ["en_ph_male", "en_ph", "fil_ph_male", "fil_ph"]
+        : ["en_ph", "en_ph_male", "fil_ph", "fil_ph_male"];
+    }
+
+    for (var i = 0; i < order.length; i++) {
+      var candidate = packs[order[i]];
+      if (!candidate) continue;
+      var segs = buildAnnouncementSegments(candidate, item);
+      if (segs) {
+        return { pack: candidate, segments: segs };
+      }
+    }
+    return null;
+  }
+
   function processNext() {
     if (isPlaying || queue.length === 0) return;
     isPlaying = true;
@@ -274,15 +686,23 @@ window.PharmacyAudio = (function () {
     }
 
     playHospitalChime().then(function () {
-      if (mode === "chime_voice") {
-        return speakText(
-          formatSpokenPhrase(item),
-          item.voiceRate,
-          item.voiceGender || "female",
-          item.voiceAccent || "en_ph"
-        );
+      if (mode !== "chime_voice") return null;
+
+      var accent = item.voiceAccent || "en_ph";
+      var gender = item.voiceGender || "female";
+      var resolved = resolvePlayablePackAndSegments(gender, accent, item);
+      if (resolved) {
+        return playEmbeddedWebAudio(resolved.pack, resolved.segments, item.voiceRate).catch(function () {
+          return playEmbeddedHtmlAudio(resolved.pack, resolved.segments, item.voiceRate);
+        });
       }
-      return null;
+
+      return speakText(
+        formatSpokenPhrase(item),
+        item.voiceRate,
+        gender,
+        accent
+      );
     }).then(function () {
       isPlaying = false;
       processNext();
@@ -307,7 +727,9 @@ window.PharmacyAudio = (function () {
     isUnlocked: isUnlocked,
     playHospitalChime: playHospitalChime,
     enqueueAnnouncement: enqueueAnnouncement,
-    getVoiceInfo: getVoiceInfo
+    getVoiceInfo: getVoiceInfo,
+    decomposeNumberToClipKeys: decomposeNumberToClipKeys,
+    buildAnnouncementSegments: buildAnnouncementSegments
   };
 })();
 </script>

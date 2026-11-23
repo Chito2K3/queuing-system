@@ -1,0 +1,8 @@
+scripts/**
+audio_cache/**
+*.py
+*.mp3
+*.wav
+.env
+.git/**
+.gitignore
