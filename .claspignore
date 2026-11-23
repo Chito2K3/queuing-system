@@ -1,6 +1,7 @@
 scripts/**
 audio_cache/**
 *.py
+*.md
 *.mp3
 *.wav
 .env
